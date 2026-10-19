@@ -1,0 +1,46 @@
+# Ambiente de desenvolvimento. Não usar em produção: Keycloak em start-dev,
+# senhas fixas e Postgres sem TLS.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: mspcp
+      POSTGRES_PASSWORD: mspcp
+      POSTGRES_DB: mspcp
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mspcp"]
+      interval: 2s
+      retries: 30
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports: ["8081:8080"]
+
+  migrate:
+    build: .
+    command: ["migrate"]
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    build: .
+    command: ["api"]
+    env_file: .env
+    ports: ["8080:8080"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    build: .
+    command: ["worker"]
+    env_file: .env
+    volumes:
+      - ./secrets:/run/secrets:ro
+    depends_on:
+      migrate: { condition: service_completed_successfully }

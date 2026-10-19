@@ -1,0 +1,5 @@
+bin/
+.env
+secrets/
+web/node_modules/
+web/dist/

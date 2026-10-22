@@ -22,16 +22,16 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"github.com/mspclouds/mspcp/internal/api"
-	"github.com/mspclouds/mspcp/internal/db"
-	"github.com/mspclouds/mspcp/internal/inventory"
-	"github.com/mspclouds/mspcp/internal/jobs"
-	"github.com/mspclouds/mspcp/internal/localauth"
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/secrets"
-	"github.com/mspclouds/mspcp/internal/store"
-	"github.com/mspclouds/mspcp/internal/testutil"
+	"github.com/vitordatasafer/mspvdc/internal/api"
+	"github.com/vitordatasafer/mspvdc/internal/db"
+	"github.com/vitordatasafer/mspvdc/internal/inventory"
+	"github.com/vitordatasafer/mspvdc/internal/jobs"
+	"github.com/vitordatasafer/mspvdc/internal/localauth"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/secrets"
+	"github.com/vitordatasafer/mspvdc/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/testutil"
 )
 
 type browser struct {
@@ -55,7 +55,7 @@ func (b *browser) do(method, path string, body any, csrf bool) (int, []byte) {
 	req, _ := http.NewRequest(method, b.base+path, rd)
 	req.Header.Set("Content-Type", "application/json")
 	if csrf {
-		req.Header.Set("X-MSPCP", "1")
+		req.Header.Set("X-MSPVDC", "1")
 	}
 	resp, err := b.c.Do(req)
 	if err != nil {
@@ -121,7 +121,7 @@ func TestUsableEndToEnd(t *testing.T) {
 	}
 
 	t.Setenv("TEST_PVE_SECRET", "s3cr3t")
-	pve := testutil.NewFakePVE(t, "portal@pve!mspcp", "s3cr3t")
+	pve := testutil.NewFakePVE(t, "portal@pve!mspvdc", "s3cr3t")
 	allow := proxmox.ParseAllowlist("127.0.0.1")
 	clients := proxmox.NewClients(allow, secrets.Multi{"env": secrets.Env{}}, secrets.NewRandomBox())
 	rc, err := jobs.NewInsertClient(pool)
@@ -151,7 +151,7 @@ func TestUsableEndToEnd(t *testing.T) {
 		t.Fatalf("config.json deveria anunciar login local: %v", cfg)
 	}
 	if code, _ := adm.do("POST", "/auth/login", map[string]any{"username": "admin", "password": temp}, false); code != 403 {
-		t.Fatalf("login sem X-MSPCP deveria ser recusado, veio %d", code)
+		t.Fatalf("login sem X-MSPVDC deveria ser recusado, veio %d", code)
 	}
 	adm.must(401, "POST", "/auth/login", map[string]any{"username": "admin", "password": "errada-errada"}, nil)
 	adm.must(401, "POST", "/auth/login", map[string]any{"username": "ninguem", "password": "errada-errada"}, nil)
@@ -171,7 +171,7 @@ func TestUsableEndToEnd(t *testing.T) {
 	adm.must(204, "PUT", "/v1/me/password", map[string]any{"current_password": temp, "new_password": "admin-senha-nova-1"}, nil)
 	adm.must(200, "GET", "/v1/tenants", nil, nil)
 	if code, _ := adm.do("PUT", "/v1/me/password", map[string]any{"current_password": "a", "new_password": "b"}, false); code != 403 {
-		t.Fatalf("mudança sem X-MSPCP deveria ser recusada, veio %d", code)
+		t.Fatalf("mudança sem X-MSPVDC deveria ser recusada, veio %d", code)
 	}
 
 	// ---- 2FA ----
@@ -202,7 +202,7 @@ func TestUsableEndToEnd(t *testing.T) {
 
 	// ---- área de clusters: testar, cadastrar (segredo cifrado), reservar ----
 	clusterForm := map[string]any{"name": "lab-01", "dc": "Lab", "location": "Laboratório",
-		"api_url": pve.Server.URL, "token_id": "portal@pve!mspcp", "token_secret": "s3cr3t", "default_bridge": "vmbr1"}
+		"api_url": pve.Server.URL, "token_id": "portal@pve!mspvdc", "token_secret": "s3cr3t", "default_bridge": "vmbr1"}
 	var probe struct {
 		OK       bool   `json:"ok"`
 		Error    string `json:"error"`
@@ -216,7 +216,7 @@ func TestUsableEndToEnd(t *testing.T) {
 		}
 		Missing []string `json:"missing_privileges"`
 	}
-	bad := map[string]any{"api_url": pve.Server.URL, "token_id": "portal@pve!mspcp", "token_secret": "errado"}
+	bad := map[string]any{"api_url": pve.Server.URL, "token_id": "portal@pve!mspvdc", "token_secret": "errado"}
 	adm.must(200, "POST", "/v1/clusters/probe", bad, &probe)
 	if probe.OK || !strings.Contains(probe.Error, "token") {
 		t.Fatalf("token errado deveria falhar no teste: %+v", probe)

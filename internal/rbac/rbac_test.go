@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 func TestScopeHierarchy(t *testing.T) {

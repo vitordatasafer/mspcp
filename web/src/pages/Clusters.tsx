@@ -93,7 +93,7 @@ export function SyncStatus({ c }: { c: Cluster }) {
 function AddClusterModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const nav = useNavigate();
-  const [f, setF] = useState({ name: "", dc: "", location: "", api_url: "https://", token_id: "mspcp@pve!portal", token_secret: "", ca_cert_pem: "" });
+  const [f, setF] = useState({ name: "", dc: "", location: "", api_url: "https://", token_id: "mspvdc@pve!portal", token_secret: "", ca_cert_pem: "" });
   const [advanced, setAdvanced] = useState(false);
   const [probe, setProbe] = useState<ProbeResult | null>(null);
   const [bridge, setBridge] = useState("");
@@ -165,7 +165,7 @@ function AddClusterModal({ onClose }: { onClose: () => void }) {
             </label>
             <label className="field">
               Token
-              <input className="input" value={f.token_id} onChange={set("token_id")} placeholder="mspcp@pve!portal" />
+              <input className="input" value={f.token_id} onChange={set("token_id")} placeholder="mspvdc@pve!portal" />
             </label>
             <label className="field">
               Segredo do token
@@ -174,8 +174,8 @@ function AddClusterModal({ onClose }: { onClose: () => void }) {
             </label>
           </div>
           <p className="hint" style={{ marginTop: 10 }}>
-            Ainda não tem token? No node, rode <code>/etc/scripts/mspcp-pve-setup.sh</code> ou crie em Datacenter › Permissões › API Tokens
-            (usuário com o papel MSPCP, separação de privilégios desligada).
+            Ainda não tem token? No node, rode <code>/etc/scripts/mspvdc-pve-setup.sh</code> ou crie em Datacenter › Permissões › API Tokens
+            (usuário com o papel MSPVDC, separação de privilégios desligada).
           </p>
           <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => setAdvanced(!advanced)}>
             {advanced ? "Esconder" : "Informar"} a CA do cluster (opcional)

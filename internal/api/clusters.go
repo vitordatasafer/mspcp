@@ -16,11 +16,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/mspclouds/mspcp/internal/inventory"
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/quota"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/inventory"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/quota"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 // Privilégios que o portal usa; os que faltarem aparecem no teste.

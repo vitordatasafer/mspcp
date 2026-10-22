@@ -19,7 +19,7 @@ import (
 	"github.com/coder/websocket"
 )
 
-// FakePVE simula o pedaço da API do Proxmox que o mspcp usa: inventário,
+// FakePVE simula o pedaço da API do Proxmox que o mspvdc usa: inventário,
 // energia, pools, clone de template, configuração, disco, exclusão e
 // console (vncproxy + vncwebsocket com um servidor VNC de mentira).
 type FakePVE struct {
@@ -414,7 +414,7 @@ func (f *FakePVE) serve(w http.ResponseWriter, r *http.Request) {
 		ticket := fmt.Sprintf("PVEVNC:%08X::fakeTicket%d", f.seq, f.seq)
 		f.tickets[ticket] = vmid
 		f.calls = append(f.calls, fmt.Sprintf("VNCPROXY %d", vmid))
-		reply(map[string]any{"port": "5900", "ticket": ticket, "user": "portal@pve!mspcp", "upid": f.newUPID(parts[1], "vncproxy", vmid)})
+		reply(map[string]any{"port": "5900", "ticket": ticket, "user": "portal@pve!mspvdc", "upid": f.newUPID(parts[1], "vncproxy", vmid)})
 
 	// /nodes/{node}/tasks/{upid}/status
 	case r.Method == http.MethodGet && len(parts) == 5 && parts[0] == "nodes" && parts[2] == "tasks" && parts[4] == "status":

@@ -15,10 +15,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/mspclouds/mspcp/internal/localauth"
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/localauth"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 const (

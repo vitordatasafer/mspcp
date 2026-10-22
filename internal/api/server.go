@@ -22,11 +22,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
-	"github.com/mspclouds/mspcp/internal/auth"
-	"github.com/mspclouds/mspcp/internal/localauth"
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/auth"
+	"github.com/vitordatasafer/mspvdc/internal/localauth"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 type Server struct {
@@ -189,8 +189,8 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		st := s.store()
 		var p *rbac.Principal
 		if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
-			if isUnsafe(r.Method) && r.Header.Get("X-MSPCP") == "" {
-				writeErr(w, http.StatusForbidden, "cabeçalho X-MSPCP ausente")
+			if isUnsafe(r.Method) && r.Header.Get("X-MSPVDC") == "" {
+				writeErr(w, http.StatusForbidden, "cabeçalho X-MSPVDC ausente")
 				return
 			}
 			h := hashToken(c.Value)

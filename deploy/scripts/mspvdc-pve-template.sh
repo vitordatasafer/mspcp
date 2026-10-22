@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# mspcp-pve-template.sh — cria um template cloud-init num node Proxmox,
+# mspvdc-pve-template.sh — cria um template cloud-init num node Proxmox,
 # pronto para ser publicado como imagem no portal.
 #
-#   /etc/scripts/mspcp-pve-template.sh -i debian12 -s local-lvm [-v 9000] [-b vmbr0]
-#   /etc/scripts/mspcp-pve-template.sh -i ubuntu2404 -s ceph-ssd -v 9001
+#   /etc/scripts/mspvdc-pve-template.sh -i debian12 -s local-lvm [-v 9000] [-b vmbr0]
+#   /etc/scripts/mspvdc-pve-template.sh -i ubuntu2404 -s ceph-ssd -v 9001
 #
 # Baixa a imagem oficial de nuvem, cria a VM com disco importado, drive
 # cloud-init e VGA padrão (o console do portal usa VNC) e converte em

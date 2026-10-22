@@ -65,7 +65,7 @@ func serveFakeVNC(ctx context.Context, conn net.Conn, password, vmName string) {
 	if _, err := br.ReadByte(); err != nil { // ClientInit (shared)
 		return
 	}
-	name := "mspcp " + vmName
+	name := "mspvdc " + vmName
 	init := binary.BigEndian.AppendUint16(nil, vncW)
 	init = binary.BigEndian.AppendUint16(init, vncH)
 	init = append(init, 32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0)
@@ -77,7 +77,7 @@ func serveFakeVNC(ctx context.Context, conn net.Conn, password, vmName string) {
 
 	scr := &vncScreen{pf: pixFmt{rs: 16, gs: 8, bs: 0, rmax: 255, gmax: 255, bmax: 255}, vm: vmName}
 	scr.lines = []string{
-		"mspcp - console de demonstracao (PVE simulado)",
+		"mspvdc - console de demonstracao (PVE simulado)",
 		"",
 		"Debian GNU/Linux 12 " + vmName + " tty1",
 		"",

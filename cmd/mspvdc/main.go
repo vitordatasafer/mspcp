@@ -1,11 +1,11 @@
 // Binário único com subcomandos:
 //
-//	mspcp migrate                         aplica migrations (schema + River)
-//	mspcp bootstrap -name N -admin USER   cria o provedor e o 1º super_admin (senha temporária)
-//	mspcp reset-password -user USER       nova senha temporária (e desliga o 2FA)
-//	mspcp cluster-add ...                 cadastra um cluster Proxmox e guarda o segredo do token
-//	mspcp api                             sobe a API HTTP(S) e o portal
-//	mspcp worker                          sobe sincronizador + executor de Tasks
+//	mspvdc migrate                         aplica migrations (schema + River)
+//	mspvdc bootstrap -name N -admin USER   cria o provedor e o 1º super_admin (senha temporária)
+//	mspvdc reset-password -user USER       nova senha temporária (e desliga o 2FA)
+//	mspvdc cluster-add ...                 cadastra um cluster Proxmox e guarda o segredo do token
+//	mspvdc api                             sobe a API HTTP(S) e o portal
+//	mspvdc worker                          sobe sincronizador + executor de Tasks
 package main
 
 import (
@@ -28,21 +28,21 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/mspclouds/mspcp/internal/api"
-	"github.com/mspclouds/mspcp/internal/auth"
-	"github.com/mspclouds/mspcp/internal/db"
-	"github.com/mspclouds/mspcp/internal/inventory"
-	"github.com/mspclouds/mspcp/internal/jobs"
-	"github.com/mspclouds/mspcp/internal/localauth"
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/secrets"
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/api"
+	"github.com/vitordatasafer/mspvdc/internal/auth"
+	"github.com/vitordatasafer/mspvdc/internal/db"
+	"github.com/vitordatasafer/mspvdc/internal/inventory"
+	"github.com/vitordatasafer/mspvdc/internal/jobs"
+	"github.com/vitordatasafer/mspvdc/internal/localauth"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/secrets"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: mspcp <migrate|bootstrap|reset-password|cluster-add|api|worker>")
+		fmt.Fprintln(os.Stderr, "uso: mspvdc <migrate|bootstrap|reset-password|cluster-add|api|worker>")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -312,7 +312,7 @@ func masterBox(log *slog.Logger) (*secrets.Box, error) {
 }
 
 func secretsResolver() secrets.Resolver {
-	return secrets.Multi{"file": secrets.Dir(envOr("SECRETS_DIR", "/etc/mspcp/secrets")), "env": secrets.Env{}}
+	return secrets.Multi{"file": secrets.Dir(envOr("SECRETS_DIR", "/etc/mspvdc/secrets")), "env": secrets.Env{}}
 }
 
 func runAPI(ctx context.Context, log *slog.Logger) error {
@@ -334,7 +334,7 @@ func runAPI(ctx context.Context, log *slog.Logger) error {
 	srv := &api.Server{
 		Pool:              pool,
 		AuthMode:          envOr("AUTH_MODE", "local"),
-		ProductName:       envOr("PRODUCT_NAME", "mspcp"),
+		ProductName:       envOr("PRODUCT_NAME", "mspvdc"),
 		River:             rc,
 		Allow:             allow,
 		Clients:           proxmox.NewClients(allow, secretsResolver(), box),

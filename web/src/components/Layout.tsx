@@ -51,7 +51,7 @@ function current(mods: Module[], path: string) {
   return mods.find((m) => m.key !== "home" && m.match.some((p) => path === p || path.startsWith(p + "/"))) ?? mods[0];
 }
 
-const NAV_KEY = "mspcp.subnav.collapsed";
+const NAV_KEY = "mspvdc.subnav.collapsed";
 
 export function Layout() {
   const s = useSession();

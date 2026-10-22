@@ -1,4 +1,4 @@
-# mspcp — contexto para o Claude
+# mspvdc — contexto para o Claude
 
 Portal multi-tenant sobre Proxmox VE (modelo MultiPortal) da mspclouds.com. Dono: Vitor (infra). **Responder sempre em português.** Código, comentários, mensagens de erro e textos da interface em português do Brasil.
 
@@ -17,7 +17,7 @@ Leia este arquivo antes de explorar o código; abra só os arquivos que a tarefa
 
 ## Stack e estrutura
 
-- Go 1.24 (chi, pgx v5, River v0.28 — fila no próprio Postgres, coder/websocket, x/crypto/argon2). Binário único `cmd/mspcp`: `migrate | bootstrap | reset-password | cluster-add | api | worker`.
+- Go 1.24 (chi, pgx v5, River v0.28 — fila no próprio Postgres, coder/websocket, x/crypto/argon2). Binário único `cmd/mspvdc`: `migrate | bootstrap | reset-password | cluster-add | api | worker`.
 - `cmd/devstack`: demo com 2 PVEs simulados (`internal/testutil/fakepve.go`, com VNC falso), usuários prontos (senha `demo12345`).
 - Portal: React 19 + Vite 8 + TS + TanStack Query, em `web/src` (pages/, components/, `api.ts` tipos e `api()`, `session.tsx` permissões de UI). Visual no padrão ZSvirt (topbar #0043B1, trilho de ícones, subnav, rodapé de tarefas; tokens em `styles.css`). noVNC 1.4 (CommonJS; ver interop em `pages/Console.tsx`).
 
@@ -33,14 +33,14 @@ Leia este arquivo antes de explorar o código; abra só os arquivos que a tarefa
 | `internal/localauth` | argon2id, TOTP, limitador, crypt SHA-512 da senha cloud-init |
 | `internal/secrets` | `Box` AES-GCM (chave `MASTER_KEY_FILE`), refs `file:`/`env:` legadas |
 | `internal/db/migrations` | SQL numerado (`000N_nome.sql`), aplicado em ordem; nunca editar uma já publicada |
-| `deploy/` | `scripts/` (vão para `/etc/scripts/` no servidor), units systemd, `mspcp.env.example` |
+| `deploy/` | `scripts/` (vão para `/etc/scripts/` no servidor), units systemd, `mspvdc.env.example` |
 
 ## Convenções
 
-- Scripts, units e arquivos de apoio nos servidores ficam em **`/etc/scripts/`** (padrão do Vitor). Config em `/etc/mspcp/`.
+- Scripts, units e arquivos de apoio nos servidores ficam em **`/etc/scripts/`** (padrão do Vitor). Config em `/etc/mspvdc/`.
 - Fora do escopo do usuário → **404** (não revelar que existe); sem permissão dentro do escopo → 403; regra de cota → **422** com mensagem para o usuário (`quota.Error`).
 - Tudo que altera estado: transação + `audit_log` (append-only). Task + job River na mesma transação.
-- Login local: cookie `mspcp_session` HttpOnly/SameSite=Strict; requisição que altera estado exige cabeçalho `X-MSPCP`.
+- Login local: cookie `mspvdc_session` HttpOnly/SameSite=Strict; requisição que altera estado exige cabeçalho `X-MSPVDC`.
 - Mudança de schema = nova migration + ajuste em `store` + teste.
 - Textos curtos e diretos na interface; sem jargão interno para MSP/cliente.
 
@@ -65,6 +65,6 @@ Testes principais: `internal/api/e2e_test.go` (isolamento e cotas, OIDC) e `inte
 
 ## Estado atual e próximos passos
 
-Pronto: login local + 2FA, usuários, clusters pelo portal, reservas por cluster, VDCs, imagens, criar/excluir/atribuir VM, console noVNC, instalação Debian 12 (`deploy/scripts/mspcp-install.sh`). Validado só contra PVE simulado — primeiro teste real será no cluster de laboratório.
+Pronto: login local + 2FA, usuários, clusters pelo portal, reservas por cluster, VDCs, imagens, criar/excluir/atribuir VM, console noVNC, instalação Debian 12 (`deploy/scripts/mspvdc-install.sh`). Validado só contra PVE simulado — primeiro teste real será no cluster de laboratório.
 
 Candidatos: redimensionar VM e discos extras; rede por VDC (VNet SDN/IPAM); snapshots e backup (PBS); Keycloak; API keys por tenant; medição para pay-as-you-go.

@@ -1,4 +1,4 @@
-// devstack sobe o mspcp inteiro para desenvolvimento e demonstração, sem
+// devstack sobe o mspvdc inteiro para desenvolvimento e demonstração, sem
 // Proxmox real: dois clusters PVE simulados (Cirion e Ascenty, com templates
 // e console), usuários locais prontos, API, worker e o portal.
 //
@@ -34,21 +34,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/mspclouds/mspcp/internal/api"
-	"github.com/mspclouds/mspcp/internal/db"
-	"github.com/mspclouds/mspcp/internal/inventory"
-	"github.com/mspclouds/mspcp/internal/jobs"
-	"github.com/mspclouds/mspcp/internal/localauth"
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/quota"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/secrets"
-	"github.com/mspclouds/mspcp/internal/store"
-	"github.com/mspclouds/mspcp/internal/testutil"
+	"github.com/vitordatasafer/mspvdc/internal/api"
+	"github.com/vitordatasafer/mspvdc/internal/db"
+	"github.com/vitordatasafer/mspvdc/internal/inventory"
+	"github.com/vitordatasafer/mspvdc/internal/jobs"
+	"github.com/vitordatasafer/mspvdc/internal/localauth"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/quota"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/secrets"
+	"github.com/vitordatasafer/mspvdc/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/testutil"
 )
 
 const (
-	tokenID      = "portal@pve!mspcp"
+	tokenID      = "portal@pve!mspvdc"
 	secret       = "segredo-de-demonstracao"
 	demoPassword = "demo12345"
 )
@@ -137,7 +137,7 @@ func run(ctx context.Context, log *slog.Logger, dsn, web string, cfg listenCfg, 
 	}
 
 	// Worker + sincronizador.
-	os.Setenv("MSPCP_DEMO_PVE_SECRET", secret)
+	os.Setenv("MSPVDC_DEMO_PVE_SECRET", secret)
 	// PVEs simulados em 127.0.0.1; PROXMOX_ALLOWED_HOSTS libera um Proxmox real
 	// para testar o cadastro pela tela.
 	allow := proxmox.ParseAllowlist("127.0.0.1," + os.Getenv("PROXMOX_ALLOWED_HOSTS"))
@@ -165,7 +165,7 @@ func run(ctx context.Context, log *slog.Logger, dsn, web string, cfg listenCfg, 
 	}
 	srv := &api.Server{
 		Pool: pool, River: inserter, Allow: allow, Clients: clients, Log: log, WebDir: web,
-		AuthMode: "local", ProductName: "mspcp demo", DemoHint: "Demonstração: usuários vitor, noc, carla, marcos, julia e leo; senha " + demoPassword,
+		AuthMode: "local", ProductName: "mspvdc demo", DemoHint: "Demonstração: usuários vitor, noc, carla, marcos, julia e leo; senha " + demoPassword,
 	}
 	go serve(ctx, log, cfg, srv.Handler())
 
@@ -182,7 +182,7 @@ func run(ctx context.Context, log *slog.Logger, dsn, web string, cfg listenCfg, 
 // demoBox guarda a chave mestra da demo num arquivo temporário, para um
 // cluster cadastrado pela tela continuar funcionando depois de reiniciar.
 func demoBox() (*secrets.Box, error) {
-	path := filepath.Join(os.TempDir(), "mspcp-demo-master.key")
+	path := filepath.Join(os.TempDir(), "mspvdc-demo-master.key")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		key := make([]byte, 32)
 		if _, err := rand.Read(key); err != nil {
@@ -222,7 +222,7 @@ func selfSigned(host string) (tls.Certificate, *x509.CertPool, error) {
 	}
 	tpl := &x509.Certificate{
 		SerialNumber:          big.NewInt(time.Now().UnixNano()),
-		Subject:               pkix.Name{CommonName: "mspcp demo " + host, Organization: []string{"mspcp devstack"}},
+		Subject:               pkix.Name{CommonName: "mspvdc demo " + host, Organization: []string{"mspvdc devstack"}},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(30 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
@@ -342,7 +342,7 @@ func seedTree(ctx context.Context, st *store.Store, cirion, ascenty *testutil.Fa
 		pve           *testutil.FakePVE
 	}{{"cirion-01", "Cirion", "São Paulo 1", cirion}, {"ascenty-01", "Ascenty", "São Paulo 2", ascenty}} {
 		cl, err := st.CreateCluster(ctx, store.Cluster{Name: c.name, DC: c.dc, Location: c.loc, APIURL: c.pve.Server.URL,
-			CACertPEM: c.pve.CAPEM(), TokenID: tokenID, TokenSecretRef: "env:MSPCP_DEMO_PVE_SECRET", CPURatio: 4})
+			CACertPEM: c.pve.CAPEM(), TokenID: tokenID, TokenSecretRef: "env:MSPVDC_DEMO_PVE_SECRET", CPURatio: 4})
 		if err != nil {
 			return err
 		}

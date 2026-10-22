@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 // Res é uma linha de /cluster/resources (qualquer tipo).

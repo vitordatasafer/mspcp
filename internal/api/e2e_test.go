@@ -20,16 +20,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/mspclouds/mspcp/internal/api"
-	"github.com/mspclouds/mspcp/internal/auth"
-	"github.com/mspclouds/mspcp/internal/db"
-	"github.com/mspclouds/mspcp/internal/inventory"
-	"github.com/mspclouds/mspcp/internal/jobs"
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/secrets"
-	"github.com/mspclouds/mspcp/internal/store"
-	"github.com/mspclouds/mspcp/internal/testutil"
+	"github.com/vitordatasafer/mspvdc/internal/api"
+	"github.com/vitordatasafer/mspvdc/internal/auth"
+	"github.com/vitordatasafer/mspvdc/internal/db"
+	"github.com/vitordatasafer/mspvdc/internal/inventory"
+	"github.com/vitordatasafer/mspvdc/internal/jobs"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/secrets"
+	"github.com/vitordatasafer/mspvdc/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/testutil"
 )
 
 type env struct {
@@ -125,15 +125,15 @@ func TestPhase0EndToEnd(t *testing.T) {
 
 	// Dublês e serviço.
 	t.Setenv("TEST_PVE_SECRET", "s3cr3t")
-	pve := testutil.NewFakePVE(t, "portal@pve!mspcp", "s3cr3t")
-	idp := testutil.NewFakeOIDC(t, "mspcp")
+	pve := testutil.NewFakePVE(t, "portal@pve!mspvdc", "s3cr3t")
+	idp := testutil.NewFakeOIDC(t, "mspvdc")
 	allow := proxmox.ParseAllowlist("127.0.0.1")
 	clients := proxmox.NewClients(allow, secrets.Multi{"env": secrets.Env{}}, secrets.NewRandomBox())
 	rc, err := jobs.NewInsertClient(pool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &api.Server{Pool: pool, Verifier: auth.NewOIDCVerifier(idp.Issuer, "mspcp", nil), River: rc, Allow: allow, Log: log}
+	s := &api.Server{Pool: pool, Verifier: auth.NewOIDCVerifier(idp.Issuer, "mspvdc", nil), River: rc, Allow: allow, Log: log}
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 	e := &env{t: t, srv: srv, idp: idp, pool: pool}
@@ -147,9 +147,9 @@ func TestPhase0EndToEnd(t *testing.T) {
 	}
 
 	// ---- clusters, localizações e storage (só a equipe) ----
-	pve2 := testutil.NewFakePVE(t, "portal@pve!mspcp", "s3cr3t")
+	pve2 := testutil.NewFakePVE(t, "portal@pve!mspvdc", "s3cr3t")
 	clusterIn := map[string]any{"name": "cirion-01", "dc": "Cirion", "location": "São Paulo 1", "api_url": pve.Server.URL,
-		"ca_cert_pem": pve.CAPEM(), "token_id": "portal@pve!mspcp", "token_secret_ref": "env:TEST_PVE_SECRET"}
+		"ca_cert_pem": pve.CAPEM(), "token_id": "portal@pve!mspvdc", "token_secret_ref": "env:TEST_PVE_SECRET"}
 	e.must(404, "noc", "POST", "/v1/clusters", clusterIn, nil)
 	bad := map[string]any{}
 	for k, v := range clusterIn {
@@ -160,7 +160,7 @@ func TestPhase0EndToEnd(t *testing.T) {
 	var c1, c2 store.Cluster
 	e.must(201, "admin", "POST", "/v1/clusters", clusterIn, &c1)
 	clusterIn2 := map[string]any{"name": "ascenty-01", "dc": "Ascenty", "location": "São Paulo 2", "api_url": pve2.Server.URL,
-		"ca_cert_pem": pve2.CAPEM(), "token_id": "portal@pve!mspcp", "token_secret_ref": "env:TEST_PVE_SECRET"}
+		"ca_cert_pem": pve2.CAPEM(), "token_id": "portal@pve!mspvdc", "token_secret_ref": "env:TEST_PVE_SECRET"}
 	e.must(201, "admin", "POST", "/v1/clusters", clusterIn2, &c2)
 	e.must(200, "noc", "GET", "/v1/clusters", nil, nil)
 	var ssd store.StorageClass

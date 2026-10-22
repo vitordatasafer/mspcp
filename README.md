@@ -1,4 +1,4 @@
-# mspcp — versão utilizável mínima
+# mspvdc — versão utilizável mínima
 
 Plano de controle multi-tenant sobre Proxmox VE, no modelo MultiPortal: **admin → MSP → cliente final**, cotas sem overcommit, VDCs por localização. Esta versão já serve para uso real em laboratório:
 
@@ -13,23 +13,23 @@ Binário único em Go; PostgreSQL é a única dependência (a fila River roda no
 
 ## Instalar no Debian 12 (laboratório)
 
-A instalação não depende do Proxmox: os clusters são cadastrados depois, pelo portal. Numa VM Debian 12 limpa, com o código em `/root/mspcp`:
+A instalação não depende do Proxmox: os clusters são cadastrados depois, pelo portal. Numa VM Debian 12 limpa, com o código em `/root/mspvdc`:
 
 ```bash
-sudo bash /root/mspcp/deploy/scripts/mspcp-install.sh
+sudo bash /root/mspvdc/deploy/scripts/mspvdc-install.sh
 ```
 
-O script instala PostgreSQL, Go 1.24 e Node 22 (se faltarem), compila, cria o usuário de sistema `mspcp`, o banco com senha aleatória, a **chave mestra** que cifra os tokens dos clusters (`/etc/mspcp/master.key`, guarde uma cópia), um certificado autoassinado, `/etc/mspcp/mspcp.env` e os serviços `mspcp-api` e `mspcp-worker`. No fim mostra a **senha temporária do `admin`** (também em `/root/mspcp-admin.txt`). Os scripts ficam em `/etc/scripts/`.
+O script instala PostgreSQL, Go 1.24 e Node 22 (se faltarem), compila, cria o usuário de sistema `mspvdc`, o banco com senha aleatória, a **chave mestra** que cifra os tokens dos clusters (`/etc/mspvdc/master.key`, guarde uma cópia), um certificado autoassinado, `/etc/mspvdc/mspvdc.env` e os serviços `mspvdc-api` e `mspvdc-worker`. No fim mostra a **senha temporária do `admin`** (também em `/root/mspvdc-admin.txt`). Os scripts ficam em `/etc/scripts/`.
 
-Acesse `https://<ip-da-vm>/` (a porta 80 redireciona), aceite o certificado e troque a senha no primeiro acesso. Para atualizar, com o código novo na mesma pasta: `sudo /etc/scripts/mspcp-install.sh` (idempotente: mantém banco, configuração, chave, certificado e usuários).
+Acesse `https://<ip-da-vm>/` (a porta 80 redireciona), aceite o certificado e troque a senha no primeiro acesso. Para atualizar, com o código novo na mesma pasta: `sudo /etc/scripts/mspvdc-install.sh` (idempotente: mantém banco, configuração, chave, certificado e usuários).
 
 ### Cadastrar o cluster Proxmox (pelo portal)
 
-1. **Token no Proxmox.** Copie o script para um node e rode como root; ele cria o papel `MSPCP` (só os privilégios que o portal usa), o usuário `mspcp@pve` (sem senha) e o token, e mostra o segredo:
+1. **Token no Proxmox.** Copie o script para um node e rode como root; ele cria o papel `MSPVDC` (só os privilégios que o portal usa), o usuário `mspvdc@pve` (sem senha) e o token, e mostra o segredo:
 
    ```bash
-   scp /etc/scripts/mspcp-pve-setup.sh /etc/scripts/mspcp-pve-template.sh root@10.0.0.11:/etc/scripts/
-   ssh root@10.0.0.11 /etc/scripts/mspcp-pve-setup.sh
+   scp /etc/scripts/mspvdc-pve-setup.sh /etc/scripts/mspvdc-pve-template.sh root@10.0.0.11:/etc/scripts/
+   ssh root@10.0.0.11 /etc/scripts/mspvdc-pve-setup.sh
    ```
 
    (Ou pela interface do Proxmox: usuário com o papel, token em Datacenter › Permissões › API Tokens com separação de privilégios desligada.)
@@ -41,15 +41,15 @@ Acesse `https://<ip-da-vm>/` (a porta 80 redireciona), aceite o certificado e tr
    - **Reservas de MSP:** reserve vCPU, memória e storage por classe para cada MSP. A soma das reservas não passa a capacidade do cluster (threads × razão, memória dos nodes, tamanho do storage), e uma reserva não fica abaixo do que o MSP já distribuiu em VDCs.
    - **Rede:** bridge padrão das VMs novas. **Conexão:** trocar endereço ou token (testado antes de salvar), renomear, desativar.
 
-4. **Template:** `ssh root@10.0.0.11 /etc/scripts/mspcp-pve-template.sh -i debian12 -s local-lvm -v 9000` (também `debian13`, `ubuntu2204`, `ubuntu2404`), depois **Infraestrutura › Imagens › Publicar**.
+4. **Template:** `ssh root@10.0.0.11 /etc/scripts/mspvdc-pve-template.sh -i debian12 -s local-lvm -v 9000` (também `debian13`, `ubuntu2204`, `ubuntu2404`), depois **Infraestrutura › Imagens › Publicar**.
 
 5. **Contas:** crie o MSP (o uso próprio da mspclouds também é um MSP, ex. "mspclouds Direto"), os limites de quantidade dele (clientes, VDCs, servidores), clientes e VDCs. Depois **Recursos › Servidores › Nova VM**, ou **Atribuir a VDC** no menu ••• de uma VM que já existe.
 
-Diagnóstico: `journalctl -u mspcp-api -u mspcp-worker -f`; na página do cluster aparece o último erro de sincronização. Senha perdida: `/etc/scripts/mspcp-cli.sh reset-password -user admin`.
+Diagnóstico: `journalctl -u mspvdc-api -u mspvdc-worker -f`; na página do cluster aparece o último erro de sincronização. Senha perdida: `/etc/scripts/mspvdc-cli.sh reset-password -user admin`.
 
 ### Certificado próprio
 
-Troque `TLS_CERT_FILE` e `TLS_KEY_FILE` em `/etc/mspcp/mspcp.env` (o usuário `mspcp` precisa ler os arquivos) e `systemctl restart mspcp-api`. Atrás de um Nginx, use `LISTEN_ADDR=127.0.0.1:8080`, apague as linhas `TLS_*` e `HTTP_REDIRECT_ADDR`, e ligue `TRUST_PROXY_HEADERS=true` (o proxy precisa repassar `X-Forwarded-Proto` e aceitar WebSocket em `/v1/console/`).
+Troque `TLS_CERT_FILE` e `TLS_KEY_FILE` em `/etc/mspvdc/mspvdc.env` (o usuário `mspvdc` precisa ler os arquivos) e `systemctl restart mspvdc-api`. Atrás de um Nginx, use `LISTEN_ADDR=127.0.0.1:8080`, apague as linhas `TLS_*` e `HTTP_REDIRECT_ADDR`, e ligue `TRUST_PROXY_HEADERS=true` (o proxy precisa repassar `X-Forwarded-Proto` e aceitar WebSocket em `/v1/console/`).
 
 ## Ver funcionando sem Proxmox (demo)
 
@@ -97,30 +97,30 @@ Sem Docker: `apt install -y postgresql && make db-local`, exporte as variáveis 
 
 - **Senhas** com argon2id; senha temporária obrigatoriamente trocada; mínimo de 10 caracteres.
 - **Sessão** em cookie `HttpOnly`, `Secure` (com HTTPS) e `SameSite=Strict`; o banco guarda só o SHA-256 do token. Expira após 8 h sem uso e 7 dias no máximo. Trocar a senha encerra as outras sessões; resetar ou remover o último acesso encerra todas.
-- **CSRF:** toda requisição que altera algo exige o cabeçalho `X-MSPCP`, que outro site não consegue enviar.
+- **CSRF:** toda requisição que altera algo exige o cabeçalho `X-MSPVDC`, que outro site não consegue enviar.
 - **Tentativas:** 5 erros seguidos de um IP para um usuário bloqueiam por 1 minuto; 30 erros de um IP, por 10 minutos. Usuário inexistente gasta o mesmo tempo que senha errada.
 - **2FA** TOTP (RFC 6238, 6 dígitos, janela de ±30 s), confirmado com um código antes de valer.
 - **Gestão de usuários:** só reseta a senha de alguém quem pode dar todos os papéis que essa pessoa tem.
 - **Senha da VM** sai do navegador e vira hash SHA-512 (`$6$`) na API; o texto puro não é gravado nem enviado ao Proxmox.
 - **Console:** ticket de uso único, válido por 30 s e preso ao usuário; o WebSocket confere a origem; a API fala com o Proxmox com o token do cluster e só repassa os bytes.
 - **Isolamento:** toda consulta recebe o escopo do usuário e filtra no SQL; fora do escopo é 404. Respostas para tenants não têm `vmid`, node, cluster, pool, bridge nem template.
-- **Proxmox:** token cifrado no banco (AES-256-GCM, chave em `/etc/mspcp/master.key`, fora do banco); certificado do cluster fixado no cadastro (ou CA pública validada pelo nome); cadastro só depois de testar a conexão; sem redirects nem proxy; o portal não conecta em loopback nem link-local, e `PROXMOX_ALLOWED_HOSTS` restringe ainda mais se definido.
+- **Proxmox:** token cifrado no banco (AES-256-GCM, chave em `/etc/mspvdc/master.key`, fora do banco); certificado do cluster fixado no cadastro (ou CA pública validada pelo nome); cadastro só depois de testar a conexão; sem redirects nem proxy; o portal não conecta em loopback nem link-local, e `PROXMOX_ALLOWED_HOSTS` restringe ainda mais se definido.
 - **Auditoria** append-only de logins, mudanças de senha e 2FA, usuários, criação, exclusão, atribuição, console e ações.
 - **systemd:** serviços sem root, `ProtectSystem=strict`, só `CAP_NET_BIND_SERVICE` para as portas 80/443.
 
-## Configuração (`/etc/mspcp/mspcp.env`)
+## Configuração (`/etc/mspvdc/mspvdc.env`)
 
 | Variável | Uso | Padrão |
 | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL | obrigatória |
 | `AUTH_MODE` | `local` (login do portal) ou `oidc` (Keycloak) | `local` |
-| `PRODUCT_NAME` | nome na tela de login e no app autenticador | `mspcp` |
+| `PRODUCT_NAME` | nome na tela de login e no app autenticador | `mspvdc` |
 | `LISTEN_ADDR` | endereço da API e do portal | `:8443` (`:443` no script) |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` | HTTPS próprio; vazios = HTTP (só atrás de proxy) | vazios |
 | `HTTP_REDIRECT_ADDR` | porta que só redireciona para HTTPS, ex. `:80` | vazio |
-| `MASTER_KEY_FILE` | chave (64 hex) que cifra os tokens dos clusters no banco | `/etc/mspcp/master.key` no script |
+| `MASTER_KEY_FILE` | chave (64 hex) que cifra os tokens dos clusters no banco | `/etc/mspvdc/master.key` no script |
 | `PROXMOX_ALLOWED_HOSTS` | opcional: restringe os hosts do Proxmox (`host[:porta]`, vírgula) | vazio (qualquer, menos loopback/link-local) |
-| `SECRETS_DIR` | segredos `file:<nome>` (legado) | `/etc/mspcp/secrets` |
+| `SECRETS_DIR` | segredos `file:<nome>` (legado) | `/etc/mspvdc/secrets` |
 | `WEB_DIR` | build do portal | vazio (só API) |
 | `SYNC_INTERVAL` | intervalo do sincronizador | `20s` |
 | `WORKER_CONCURRENCY` | tarefas simultâneas | `50` |
@@ -130,26 +130,26 @@ Sem Docker: `apt install -y postgresql && make db-local`, exporte as variáveis 
 ### Comandos
 
 ```
-mspcp migrate                         aplica migrations (o serviço já roda ao subir)
-mspcp bootstrap -name N -admin USER   cria o provedor e o 1º admin (senha temporária)
-mspcp reset-password -user USER       nova senha temporária (e desliga o 2FA)
-mspcp cluster-add -name ... -url ... -token-id ... -secret-file -   (alternativa ao portal)
-mspcp api | worker                    os serviços
+mspvdc migrate                         aplica migrations (o serviço já roda ao subir)
+mspvdc bootstrap -name N -admin USER   cria o provedor e o 1º admin (senha temporária)
+mspvdc reset-password -user USER       nova senha temporária (e desliga o 2FA)
+mspvdc cluster-add -name ... -url ... -token-id ... -secret-file -   (alternativa ao portal)
+mspvdc api | worker                    os serviços
 ```
 
-No servidor instalado, use `/etc/scripts/mspcp-cli.sh <comando>`: ele carrega o `mspcp.env`.
+No servidor instalado, use `/etc/scripts/mspvdc-cli.sh <comando>`: ele carrega o `mspvdc.env`.
 
 ### Privilégios do token no Proxmox
 
-`VM.Audit VM.PowerMgmt VM.Console VM.Clone VM.Allocate VM.Config.{CDROM,CPU,Cloudinit,Disk,HWType,Memory,Network,Options} VM.GuestAgent.Audit Datastore.Audit Datastore.AllocateSpace Pool.Allocate Pool.Audit Sys.Audit SDN.Use`, em `/`. O `mspcp-pve-setup.sh` ignora os que não existirem na versão do PVE. Pools usam a API do PVE 8.1+ (`PUT /pools` com `allow-move`), com recuo para a antiga.
+`VM.Audit VM.PowerMgmt VM.Console VM.Clone VM.Allocate VM.Config.{CDROM,CPU,Cloudinit,Disk,HWType,Memory,Network,Options} VM.GuestAgent.Audit Datastore.Audit Datastore.AllocateSpace Pool.Allocate Pool.Audit Sys.Audit SDN.Use`, em `/`. O `mspvdc-pve-setup.sh` ignora os que não existirem na versão do PVE. Pools usam a API do PVE 8.1+ (`PUT /pools` com `allow-move`), com recuo para a antiga.
 
 ### Keycloak (opcional)
 
-`AUTH_MODE=oidc`. No realm, client público `mspcp-portal` com Standard flow, PKCE `S256`, redirect `https://portal/callback`, web origin `https://portal` e um mapper Audience com `mspcp-portal`. Bootstrap com `-oidc -admin <sub>`. Em "Usuários", o portal passa a vincular o `sub` do Keycloak em vez de criar usuário local.
+`AUTH_MODE=oidc`. No realm, client público `mspvdc-portal` com Standard flow, PKCE `S256`, redirect `https://portal/callback`, web origin `https://portal` e um mapper Audience com `mspvdc-portal`. Bootstrap com `-oidc -admin <sub>`. Em "Usuários", o portal passa a vincular o `sub` do Keycloak em vez de criar usuário local.
 
 ## API v1
 
-Login local: `POST /auth/login {username, password, totp?}` devolve o cookie de sessão (ou `{"need_totp": true}`); `POST /auth/logout`. Toda chamada que altera algo leva `X-MSPCP: 1`. Com OIDC, `Authorization: Bearer <token>`.
+Login local: `POST /auth/login {username, password, totp?}` devolve o cookie de sessão (ou `{"need_totp": true}`); `POST /auth/logout`. Toda chamada que altera algo leva `X-MSPVDC: 1`. Com OIDC, `Authorization: Bearer <token>`.
 
 | Método e rota | Quem | Faz |
 | --- | --- | --- |
@@ -192,9 +192,9 @@ cd web && npm run dev            # portal com recarga em :5173 (proxy para a API
 **Nota sobre `go.sum`:** o projeto foi montado num ambiente sem acesso a `proxy.golang.org`, então o `go.sum` não traz as linhas de `golang.org/x/*`, `gopkg.in/*` e `go.uber.org/goleak`. O script de instalação roda `go mod tidy`; em desenvolvimento, rode uma vez.
 
 ```
-cmd/mspcp/           binário: migrate | bootstrap | reset-password | cluster-add | api | worker
+cmd/mspvdc/           binário: migrate | bootstrap | reset-password | cluster-add | api | worker
 cmd/devstack/        demonstração: PVEs simulados + api + worker + portal
-deploy/              scripts (/etc/scripts), units systemd e modelo do mspcp.env
+deploy/              scripts (/etc/scripts), units systemd e modelo do mspvdc.env
 web/                 portal React + TypeScript (Vite), noVNC no console
 internal/api/        rotas HTTP, login local, console, VMs (+ testes ponta a ponta)
 internal/localauth/  argon2id, TOTP, limitador de tentativas, crypt SHA-512

@@ -7,7 +7,7 @@ package rbac
 import (
 	"github.com/google/uuid"
 
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 type Permission string

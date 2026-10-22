@@ -1,4 +1,4 @@
-module github.com/mspclouds/mspcp
+module github.com/vitordatasafer/mspvdc
 
 go 1.24.0
 

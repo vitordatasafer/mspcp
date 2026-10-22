@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# mspcp-pve-setup.sh — prepara um cluster Proxmox VE para o mspcp.
+# mspvdc-pve-setup.sh — prepara um cluster Proxmox VE para o mspvdc.
 #
 # Rode como root em UM node do cluster (a configuração de usuários do PVE é
 # do cluster todo). Guarde em /etc/scripts/ no node.
 #
-#   /etc/scripts/mspcp-pve-setup.sh [-u mspcp@pve] [-t portal]
+#   /etc/scripts/mspvdc-pve-setup.sh [-u mspvdc@pve] [-t portal]
 #
 # Cria:
-#   - o papel MSPCP, só com os privilégios que o portal usa;
-#   - o usuário mspcp@pve (sem senha: só entra por token);
+#   - o papel MSPVDC, só com os privilégios que o portal usa;
+#   - o usuário mspvdc@pve (sem senha: só entra por token);
 #   - a permissão do papel em / para o usuário;
 #   - o token de API (privsep desligado: herda o papel do usuário).
 # E mostra o que informar no portal (Infraestrutura › Clusters).
 set -euo pipefail
 
-USER_ID=mspcp@pve
+USER_ID=mspvdc@pve
 TOKEN=portal
 NAME=$(hostname -s)
 while getopts "u:t:n:h" o; do
@@ -48,22 +48,22 @@ for p in $WANT; do
 done
 PRIVS=${PRIVS#,}
 
-if pveum role list --output-format json | python3 -c 'import json,sys; sys.exit(0 if any(r["roleid"]=="MSPCP" for r in json.load(sys.stdin)) else 1)'; then
-  pveum role modify MSPCP --privs "$PRIVS"
-  echo "Papel MSPCP atualizado."
+if pveum role list --output-format json | python3 -c 'import json,sys; sys.exit(0 if any(r["roleid"]=="MSPVDC" for r in json.load(sys.stdin)) else 1)'; then
+  pveum role modify MSPVDC --privs "$PRIVS"
+  echo "Papel MSPVDC atualizado."
 else
-  pveum role add MSPCP --privs "$PRIVS"
-  echo "Papel MSPCP criado."
+  pveum role add MSPVDC --privs "$PRIVS"
+  echo "Papel MSPVDC criado."
 fi
 
 if pveum user list --output-format json | python3 -c "import json,sys; sys.exit(0 if any(u['userid']=='$USER_ID' for u in json.load(sys.stdin)) else 1)"; then
   echo "Usuário $USER_ID já existe."
 else
-  pveum user add "$USER_ID" --comment "Portal mspcp (só token, sem senha)"
+  pveum user add "$USER_ID" --comment "Portal mspvdc (só token, sem senha)"
   echo "Usuário $USER_ID criado."
 fi
-pveum acl modify / --users "$USER_ID" --roles MSPCP
-echo "Permissão MSPCP em / para $USER_ID."
+pveum acl modify / --users "$USER_ID" --roles MSPVDC
+echo "Permissão MSPVDC em / para $USER_ID."
 
 if pveum user token list "$USER_ID" --output-format json | python3 -c "import json,sys; sys.exit(0 if any(t['tokenid']=='$TOKEN' for t in json.load(sys.stdin)) else 1)"; then
   echo
@@ -71,7 +71,7 @@ if pveum user token list "$USER_ID" --output-format json | python3 -c "import js
   echo "Para gerar outro: pveum user token remove $USER_ID $TOKEN  e rode este script de novo."
   exit 0
 fi
-SECRET=$(pveum user token add "$USER_ID" "$TOKEN" --privsep 0 --comment "mspcp" --output-format json |
+SECRET=$(pveum user token add "$USER_ID" "$TOKEN" --privsep 0 --comment "mspvdc" --output-format json |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')
 
 IP=$(hostname -I | awk '{print $1}')

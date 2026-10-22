@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/testutil"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/testutil"
 )
 
 func TestAllowlistCheck(t *testing.T) {

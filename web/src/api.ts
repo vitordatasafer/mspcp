@@ -292,12 +292,12 @@ export class ApiError extends Error {
 }
 
 // api chama a API v1. No login local a sessão vai no cookie e toda
-// requisição leva o cabeçalho X-MSPCP (proteção contra CSRF); no OIDC vai o
+// requisição leva o cabeçalho X-MSPVDC (proteção contra CSRF); no OIDC vai o
 // token Bearer.
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const cfg = await getConfig();
   const headers = new Headers(init.headers);
-  headers.set("X-MSPCP", "1");
+  headers.set("X-MSPVDC", "1");
   if (cfg.auth === "oidc") {
     const user = await oidcUser();
     if (!user) {

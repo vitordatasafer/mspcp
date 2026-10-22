@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 // Error é uma violação de regra de negócio, com mensagem para o usuário.

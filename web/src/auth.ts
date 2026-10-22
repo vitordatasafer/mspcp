@@ -79,7 +79,7 @@ export async function logout() {
     await m.signoutRedirect({ id_token_hint: u?.id_token });
     return;
   }
-  await fetch("/auth/logout", { method: "POST", headers: { "X-MSPCP": "1" }, credentials: "same-origin" });
+  await fetch("/auth/logout", { method: "POST", headers: { "X-MSPVDC": "1" }, credentials: "same-origin" });
   location.assign("/login");
 }
 
@@ -93,7 +93,7 @@ export async function localLogin(username: string, password: string, totp?: stri
   const res = await fetch("/auth/login", {
     method: "POST",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", "X-MSPCP": "1" },
+    headers: { "Content-Type": "application/json", "X-MSPVDC": "1" },
     body: JSON.stringify({ username, password, totp: totp || "" }),
   });
   const data = await res.json().catch(() => ({}));

@@ -1,18 +1,18 @@
 [Unit]
-Description=mspcp - API e portal
-Documentation=file:///usr/share/doc/mspcp/README.md
+Description=mspvdc - API e portal
+Documentation=file:///usr/share/doc/mspvdc/README.md
 After=network-online.target postgresql.service
 Wants=network-online.target
 Requires=postgresql.service
 
 [Service]
 Type=simple
-User=mspcp
-Group=mspcp
-EnvironmentFile=/etc/mspcp/mspcp.env
+User=mspvdc
+Group=mspvdc
+EnvironmentFile=/etc/mspvdc/mspvdc.env
 # Aplica as migrations antes de subir (idempotente, com trava no banco).
-ExecStartPre=/usr/local/bin/mspcp migrate
-ExecStart=/usr/local/bin/mspcp api
+ExecStartPre=/usr/local/bin/mspvdc migrate
+ExecStart=/usr/local/bin/mspvdc api
 Restart=on-failure
 RestartSec=3
 # Portas 80/443 sem rodar como root.
@@ -28,7 +28,7 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
-ReadOnlyPaths=/etc/mspcp
+ReadOnlyPaths=/etc/mspvdc
 
 [Install]
 WantedBy=multi-user.target

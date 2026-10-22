@@ -1,15 +1,15 @@
 [Unit]
-Description=mspcp - worker (sincronização e tarefas no Proxmox)
-After=network-online.target postgresql.service mspcp-api.service
+Description=mspvdc - worker (sincronização e tarefas no Proxmox)
+After=network-online.target postgresql.service mspvdc-api.service
 Wants=network-online.target
 Requires=postgresql.service
 
 [Service]
 Type=simple
-User=mspcp
-Group=mspcp
-EnvironmentFile=/etc/mspcp/mspcp.env
-ExecStart=/usr/local/bin/mspcp worker
+User=mspvdc
+Group=mspvdc
+EnvironmentFile=/etc/mspvdc/mspvdc.env
+ExecStart=/usr/local/bin/mspvdc worker
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
@@ -23,7 +23,7 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
 CapabilityBoundingSet=
-ReadOnlyPaths=/etc/mspcp
+ReadOnlyPaths=/etc/mspvdc
 
 [Install]
 WantedBy=multi-user.target

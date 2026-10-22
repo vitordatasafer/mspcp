@@ -4,12 +4,12 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: mspcp
-      POSTGRES_PASSWORD: mspcp
-      POSTGRES_DB: mspcp
+      POSTGRES_USER: mspvdc
+      POSTGRES_PASSWORD: mspvdc
+      POSTGRES_DB: mspvdc
     ports: ["5432:5432"]
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "mspcp"]
+      test: ["CMD", "pg_isready", "-U", "mspvdc"]
       interval: 2s
       retries: 30
 

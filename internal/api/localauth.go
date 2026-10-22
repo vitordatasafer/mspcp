@@ -4,7 +4,7 @@ package api
 // cookie HttpOnly. O token da sessão nunca é gravado: só o SHA-256 dele.
 //
 // CSRF: o cookie é SameSite=Strict e toda requisição que altera estado
-// precisa do cabeçalho X-MSPCP, que um site de terceiros não consegue
+// precisa do cabeçalho X-MSPVDC, que um site de terceiros não consegue
 // mandar sem CORS (e a API não libera CORS).
 
 import (
@@ -19,12 +19,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/mspclouds/mspcp/internal/localauth"
-	"github.com/mspclouds/mspcp/internal/rbac"
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/localauth"
+	"github.com/vitordatasafer/mspvdc/internal/rbac"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
-const sessionCookie = "mspcp_session"
+const sessionCookie = "mspvdc_session"
 
 func hashToken(tok string) []byte {
 	h := sha256.Sum256([]byte(tok))
@@ -58,8 +58,8 @@ func (s *Server) limiters() (*localauth.Limiter, *localauth.Limiter) {
 // ---------- login / logout ----------
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-MSPCP") == "" {
-		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPCP ausente")
+	if r.Header.Get("X-MSPVDC") == "" {
+		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPVDC ausente")
 		return
 	}
 	var in struct {
@@ -149,8 +149,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-MSPCP") == "" {
-		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPCP ausente")
+	if r.Header.Get("X-MSPVDC") == "" {
+		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPVDC ausente")
 		return
 	}
 	if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
@@ -312,7 +312,7 @@ func (s *Server) issuerName() string {
 	if s.ProductName != "" {
 		return s.ProductName
 	}
-	return "mspcp"
+	return "mspvdc"
 }
 
 // ---------- gestão de usuários ----------

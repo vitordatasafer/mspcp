@@ -19,8 +19,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
-	"github.com/mspclouds/mspcp/internal/proxmox"
-	"github.com/mspclouds/mspcp/internal/store"
+	"github.com/vitordatasafer/mspvdc/internal/proxmox"
+	"github.com/vitordatasafer/mspvdc/internal/store"
 )
 
 // VMArgs carrega só o ID da Task, como PowerArgs.
@@ -176,7 +176,7 @@ func (r *vmRun) ensurePool(ctx context.Context, cl *proxmox.Client, p store.Proj
 	if err != nil {
 		return err
 	}
-	err = cl.CreatePool(ctx, p.PoolName, "mspcp: "+t.Name+" / "+p.Name)
+	err = cl.CreatePool(ctx, p.PoolName, "mspvdc: "+t.Name+" / "+p.Name)
 	if err != nil {
 		msg := err.Error()
 		_ = r.st.SetPoolState(ctx, p.ID, false, &msg)

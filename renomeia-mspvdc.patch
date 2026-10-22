@@ -1,0 +1,1798 @@
+From dfab1fa5a83692203e7060e0e1cc54bd98e3098d Mon Sep 17 00:00:00 2001
+From: Vitor <vitor10prado@gmail.com>
+Date: Thu, 22 Oct 2026 15:43:12 -0300
+Subject: [PATCH] Renomeia o projeto de mspcp para mspvdc
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Módulo Go github.com/vitordatasafer/mspvdc, binário e cmd/mspvdc, serviços
+mspvdc-api/mspvdc-worker, scripts /etc/scripts/mspvdc-*.sh, config em
+/etc/mspvdc, usuário e banco mspvdc, papel MSPVDC e usuário mspvdc@pve no
+Proxmox, cookie mspvdc_session e cabeçalho X-MSPVDC.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_0193qbmqtde1XumWTNNFHPo7
+---
+ .env.example                                  | 12 +--
+ CLAUDE.md                                     | 12 +--
+ Dockerfile                                    |  6 +-
+ Makefile                                      | 40 ++++-----
+ README.md                                     | 56 ++++++-------
+ cmd/devstack/main.go                          | 36 ++++----
+ cmd/{mspcp => mspvdc}/main.go                 | 38 ++++-----
+ .../{mspcp.env.example => mspvdc.env.example} | 24 +++---
+ deploy/scripts/mspcp-cli.sh                   | 13 ---
+ deploy/scripts/mspvdc-cli.sh                  | 13 +++
+ .../{mspcp-install.sh => mspvdc-install.sh}   | 84 +++++++++----------
+ ...mspcp-pve-setup.sh => mspvdc-pve-setup.sh} | 28 +++----
+ ...pve-template.sh => mspvdc-pve-template.sh} |  6 +-
+ .../{mspcp-api.service => mspvdc-api.service} | 16 ++--
+ ...p-worker.service => mspvdc-worker.service} | 14 ++--
+ docker-compose.yml                            |  8 +-
+ go.mod                                        |  2 +-
+ internal/api/clusters.go                      | 10 +--
+ internal/api/console.go                       |  8 +-
+ internal/api/e2e_test.go                      | 32 +++----
+ internal/api/handlers.go                      |  8 +-
+ internal/api/localauth.go                     | 20 ++---
+ internal/api/server.go                        | 14 ++--
+ internal/api/usable_test.go                   | 32 +++----
+ internal/api/vdc.go                           |  6 +-
+ internal/api/vms.go                           | 12 +--
+ internal/auth/oidc_test.go                    | 18 ++--
+ internal/inventory/syncer.go                  |  4 +-
+ internal/jobs/power.go                        |  4 +-
+ internal/jobs/vm.go                           |  6 +-
+ internal/proxmox/client_test.go               |  4 +-
+ internal/proxmox/factory.go                   |  4 +-
+ internal/proxmox/inventory.go                 |  2 +-
+ internal/quota/quota.go                       |  2 +-
+ internal/rbac/rbac.go                         |  2 +-
+ internal/rbac/rbac_test.go                    |  4 +-
+ internal/testutil/fakepve.go                  |  4 +-
+ internal/testutil/fakevnc.go                  |  4 +-
+ web/package-lock.json                         |  4 +-
+ web/package.json                              |  2 +-
+ web/src/api.ts                                |  4 +-
+ web/src/auth.ts                               |  4 +-
+ web/src/components/Layout.tsx                 |  2 +-
+ web/src/pages/Clusters.tsx                    |  8 +-
+ web/vite.config.ts                            |  2 +-
+ 45 files changed, 317 insertions(+), 317 deletions(-)
+ rename cmd/{mspcp => mspvdc}/main.go (91%)
+ rename deploy/{mspcp.env.example => mspvdc.env.example} (64%)
+ delete mode 100755 deploy/scripts/mspcp-cli.sh
+ create mode 100755 deploy/scripts/mspvdc-cli.sh
+ rename deploy/scripts/{mspcp-install.sh => mspvdc-install.sh} (70%)
+ rename deploy/scripts/{mspcp-pve-setup.sh => mspvdc-pve-setup.sh} (81%)
+ rename deploy/scripts/{mspcp-pve-template.sh => mspvdc-pve-template.sh} (90%)
+ rename deploy/systemd/{mspcp-api.service => mspvdc-api.service} (70%)
+ rename deploy/systemd/{mspcp-worker.service => mspvdc-worker.service} (60%)
+
+diff --git a/.env.example b/.env.example
+index fec2546..314e18c 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,14 +1,14 @@
+-DATABASE_URL=postgres://mspcp:mspcp@db:5432/mspcp?sslmode=disable
++DATABASE_URL=postgres://mspvdc:mspvdc@db:5432/mspvdc?sslmode=disable
+ 
+ # Login: local (usuário e senha no portal) ou oidc (Keycloak, abaixo).
+ AUTH_MODE=oidc
+ 
+ # Realm no Keycloak e client do portal (o "aud" do access token).
+ OIDC_ISSUER=http://keycloak:8080/realms/mspclouds
+-OIDC_AUDIENCE=mspcp-portal
++OIDC_AUDIENCE=mspvdc-portal
+ # Client público do portal (PKCE). Padrão: o mesmo valor de OIDC_AUDIENCE.
+-OIDC_CLIENT_ID=mspcp-portal
+-# OIDC_CA_FILE=/etc/mspcp/keycloak-ca.pem
++OIDC_CLIENT_ID=mspvdc-portal
++# OIDC_CA_FILE=/etc/mspvdc/keycloak-ca.pem
+ 
+ # Hosts das APIs do PVE, separados por vírgula (host ou host:porta).
+ PROXMOX_ALLOWED_HOSTS=pve-cirion-01.mgmt.mspclouds.local,pve-ascenty-01.mgmt.mspclouds.local
+@@ -18,8 +18,8 @@ SYNC_INTERVAL=20s
+ WORKER_CONCURRENCY=50
+ LISTEN_ADDR=:8080
+ # HTTPS próprio (vazio = HTTP, só atrás de proxy)
+-# TLS_CERT_FILE=/etc/mspcp/tls/server.crt
+-# TLS_KEY_FILE=/etc/mspcp/tls/server.key
++# TLS_CERT_FILE=/etc/mspvdc/tls/server.crt
++# TLS_KEY_FILE=/etc/mspvdc/tls/server.key
+ # Build do portal (web/dist). Vazio = API sem portal.
+ WEB_DIR=/srv/web
+ TRUST_PROXY_HEADERS=false
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 6e30589..a0daf3b 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -1,4 +1,4 @@
+-# mspcp — contexto para o Claude
++# mspvdc — contexto para o Claude
+ 
+ Portal multi-tenant sobre Proxmox VE (modelo MultiPortal) da mspclouds.com. Dono: Vitor (infra). **Responder sempre em português.** Código, comentários, mensagens de erro e textos da interface em português do Brasil.
+ 
+@@ -17,7 +17,7 @@ Leia este arquivo antes de explorar o código; abra só os arquivos que a tarefa
+ 
+ ## Stack e estrutura
+ 
+-- Go 1.24 (chi, pgx v5, River v0.28 — fila no próprio Postgres, coder/websocket, x/crypto/argon2). Binário único `cmd/mspcp`: `migrate | bootstrap | reset-password | cluster-add | api | worker`.
++- Go 1.24 (chi, pgx v5, River v0.28 — fila no próprio Postgres, coder/websocket, x/crypto/argon2). Binário único `cmd/mspvdc`: `migrate | bootstrap | reset-password | cluster-add | api | worker`.
+ - `cmd/devstack`: demo com 2 PVEs simulados (`internal/testutil/fakepve.go`, com VNC falso), usuários prontos (senha `demo12345`).
+ - Portal: React 19 + Vite 8 + TS + TanStack Query, em `web/src` (pages/, components/, `api.ts` tipos e `api()`, `session.tsx` permissões de UI). Visual no padrão ZSvirt (topbar #0043B1, trilho de ícones, subnav, rodapé de tarefas; tokens em `styles.css`). noVNC 1.4 (CommonJS; ver interop em `pages/Console.tsx`).
+ 
+@@ -33,14 +33,14 @@ Leia este arquivo antes de explorar o código; abra só os arquivos que a tarefa
+ | `internal/localauth` | argon2id, TOTP, limitador, crypt SHA-512 da senha cloud-init |
+ | `internal/secrets` | `Box` AES-GCM (chave `MASTER_KEY_FILE`), refs `file:`/`env:` legadas |
+ | `internal/db/migrations` | SQL numerado (`000N_nome.sql`), aplicado em ordem; nunca editar uma já publicada |
+-| `deploy/` | `scripts/` (vão para `/etc/scripts/` no servidor), units systemd, `mspcp.env.example` |
++| `deploy/` | `scripts/` (vão para `/etc/scripts/` no servidor), units systemd, `mspvdc.env.example` |
+ 
+ ## Convenções
+ 
+-- Scripts, units e arquivos de apoio nos servidores ficam em **`/etc/scripts/`** (padrão do Vitor). Config em `/etc/mspcp/`.
++- Scripts, units e arquivos de apoio nos servidores ficam em **`/etc/scripts/`** (padrão do Vitor). Config em `/etc/mspvdc/`.
+ - Fora do escopo do usuário → **404** (não revelar que existe); sem permissão dentro do escopo → 403; regra de cota → **422** com mensagem para o usuário (`quota.Error`).
+ - Tudo que altera estado: transação + `audit_log` (append-only). Task + job River na mesma transação.
+-- Login local: cookie `mspcp_session` HttpOnly/SameSite=Strict; requisição que altera estado exige cabeçalho `X-MSPCP`.
++- Login local: cookie `mspvdc_session` HttpOnly/SameSite=Strict; requisição que altera estado exige cabeçalho `X-MSPVDC`.
+ - Mudança de schema = nova migration + ajuste em `store` + teste.
+ - Textos curtos e diretos na interface; sem jargão interno para MSP/cliente.
+ 
+@@ -65,6 +65,6 @@ Testes principais: `internal/api/e2e_test.go` (isolamento e cotas, OIDC) e `inte
+ 
+ ## Estado atual e próximos passos
+ 
+-Pronto: login local + 2FA, usuários, clusters pelo portal, reservas por cluster, VDCs, imagens, criar/excluir/atribuir VM, console noVNC, instalação Debian 12 (`deploy/scripts/mspcp-install.sh`). Validado só contra PVE simulado — primeiro teste real será no cluster de laboratório.
++Pronto: login local + 2FA, usuários, clusters pelo portal, reservas por cluster, VDCs, imagens, criar/excluir/atribuir VM, console noVNC, instalação Debian 12 (`deploy/scripts/mspvdc-install.sh`). Validado só contra PVE simulado — primeiro teste real será no cluster de laboratório.
+ 
+ Candidatos: redimensionar VM e discos extras; rede por VDC (VNet SDN/IPAM); snapshots e backup (PBS); Keycloak; API keys por tenant; medição para pay-as-you-go.
+diff --git a/Dockerfile b/Dockerfile
+index 68399e9..2c12f4e 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -10,12 +10,12 @@ WORKDIR /src
+ COPY go.mod go.sum ./
+ RUN go mod download
+ COPY . .
+-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mspcp ./cmd/mspcp
++RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mspvdc ./cmd/mspvdc
+ 
+ FROM gcr.io/distroless/static-debian12:nonroot
+-COPY --from=build /out/mspcp /usr/local/bin/mspcp
++COPY --from=build /out/mspvdc /usr/local/bin/mspvdc
+ COPY --from=web /web/dist /srv/web
+ ENV WEB_DIR=/srv/web
+ USER nonroot:nonroot
+-ENTRYPOINT ["/usr/local/bin/mspcp"]
++ENTRYPOINT ["/usr/local/bin/mspvdc"]
+ CMD ["api"]
+diff --git a/Makefile b/Makefile
+index 05fbaf0..35d94e9 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,10 +2,10 @@
+ 
+ # Bancos usados pelos testes e pela demonstração. Sem Docker, aponte para um
+ # PostgreSQL local (veja `make db-local`) e exporte as variáveis:
+-#   export TEST_DATABASE_URL=postgres://mspcp:mspcp@127.0.0.1:5432/mspcp_test?sslmode=disable
+-#   export DATABASE_URL=postgres://mspcp:mspcp@127.0.0.1:5432/mspcp_demo?sslmode=disable
+-DOCKER_TEST_DB = postgres://mspcp:mspcp@127.0.0.1:55432/mspcp_test?sslmode=disable
+-DOCKER_DEMO_DB = postgres://mspcp:mspcp@127.0.0.1:55433/mspcp_demo?sslmode=disable
++#   export TEST_DATABASE_URL=postgres://mspvdc:mspvdc@127.0.0.1:5432/mspvdc_test?sslmode=disable
++#   export DATABASE_URL=postgres://mspvdc:mspvdc@127.0.0.1:5432/mspvdc_demo?sslmode=disable
++DOCKER_TEST_DB = postgres://mspvdc:mspvdc@127.0.0.1:55432/mspvdc_test?sslmode=disable
++DOCKER_DEMO_DB = postgres://mspvdc:mspvdc@127.0.0.1:55433/mspvdc_demo?sslmode=disable
+ HAS_DOCKER := $(shell command -v docker 2>/dev/null)
+ 
+ define NO_DB
+@@ -15,7 +15,7 @@ endef
+ export NO_DB
+ 
+ build: web
+-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/mspcp ./cmd/mspcp
++	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/mspvdc ./cmd/mspvdc
+ 
+ test:
+ 	go test -race ./...
+@@ -26,11 +26,11 @@ test-e2e:
+ ifneq ($(TEST_DATABASE_URL),)
+ 	go test -race -count=1 ./...
+ else ifneq ($(HAS_DOCKER),)
+-	docker run -d --rm --name mspcp-testdb -p 55432:5432 \
+-		-e POSTGRES_USER=mspcp -e POSTGRES_PASSWORD=mspcp -e POSTGRES_DB=mspcp_test postgres:16
+-	until docker exec mspcp-testdb pg_isready -U mspcp >/dev/null 2>&1; do sleep 1; done
++	docker run -d --rm --name mspvdc-testdb -p 55432:5432 \
++		-e POSTGRES_USER=mspvdc -e POSTGRES_PASSWORD=mspvdc -e POSTGRES_DB=mspvdc_test postgres:16
++	until docker exec mspvdc-testdb pg_isready -U mspvdc >/dev/null 2>&1; do sleep 1; done
+ 	TEST_DATABASE_URL="$(DOCKER_TEST_DB)" go test -race -count=1 ./... ; status=$$?; \
+-		docker stop mspcp-testdb >/dev/null; exit $$status
++		docker stop mspvdc-testdb >/dev/null; exit $$status
+ else
+ 	@echo "$$NO_DB"; exit 1
+ endif
+@@ -38,25 +38,25 @@ endif
+ # Cria usuário e bancos num PostgreSQL local (sem Docker). Precisa de sudo
+ # para o usuário postgres; rode uma vez.
+ db-local:
+-	sudo -u postgres psql -v ON_ERROR_STOP=1 -c "DO \$$\$$BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'mspcp') THEN CREATE ROLE mspcp LOGIN PASSWORD 'mspcp'; END IF; END\$$\$$;"
+-	for db in mspcp mspcp_test mspcp_demo; do \
++	sudo -u postgres psql -v ON_ERROR_STOP=1 -c "DO \$$\$$BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'mspvdc') THEN CREATE ROLE mspvdc LOGIN PASSWORD 'mspvdc'; END IF; END\$$\$$;"
++	for db in mspvdc mspvdc_test mspvdc_demo; do \
+ 		sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$$db'" | grep -q 1 || \
+-		sudo -u postgres createdb -O mspcp $$db; \
++		sudo -u postgres createdb -O mspvdc $$db; \
+ 	done
+ 	@echo
+ 	@echo "Pronto. Exporte:"
+-	@echo "  export TEST_DATABASE_URL=postgres://mspcp:mspcp@127.0.0.1:5432/mspcp_test?sslmode=disable"
+-	@echo "  export DATABASE_URL=postgres://mspcp:mspcp@127.0.0.1:5432/mspcp_demo?sslmode=disable"
++	@echo "  export TEST_DATABASE_URL=postgres://mspvdc:mspvdc@127.0.0.1:5432/mspvdc_test?sslmode=disable"
++	@echo "  export DATABASE_URL=postgres://mspvdc:mspvdc@127.0.0.1:5432/mspvdc_demo?sslmode=disable"
+ 
+ lint:
+ 	go vet ./...
+ 	test -z "$$(gofmt -l .)"
+ 
+ run-api:
+-	go run ./cmd/mspcp api
++	go run ./cmd/mspvdc api
+ 
+ run-worker:
+-	go run ./cmd/mspcp worker
++	go run ./cmd/mspvdc worker
+ 
+ web:
+ 	cd web && npm ci && npm run build
+@@ -70,9 +70,9 @@ demo: web
+ ifneq ($(DATABASE_URL),)
+ 	go run ./cmd/devstack -reset $(DEMO_FLAGS) -db "$(DATABASE_URL)"
+ else ifneq ($(HAS_DOCKER),)
+-	docker run -d --rm --name mspcp-demodb -p 55433:5432 \
+-		-e POSTGRES_USER=mspcp -e POSTGRES_PASSWORD=mspcp -e POSTGRES_DB=mspcp_demo postgres:16 >/dev/null || true
+-	until docker exec mspcp-demodb pg_isready -U mspcp >/dev/null 2>&1; do sleep 1; done
++	docker run -d --rm --name mspvdc-demodb -p 55433:5432 \
++		-e POSTGRES_USER=mspvdc -e POSTGRES_PASSWORD=mspvdc -e POSTGRES_DB=mspvdc_demo postgres:16 >/dev/null || true
++	until docker exec mspvdc-demodb pg_isready -U mspvdc >/dev/null 2>&1; do sleep 1; done
+ 	go run ./cmd/devstack -reset $(DEMO_FLAGS) -db "$(DOCKER_DEMO_DB)"
+ else
+ 	@echo "$$NO_DB"; exit 1
+@@ -80,4 +80,4 @@ endif
+ 
+ # Instala ou atualiza neste servidor (Debian 12): systemd, HTTPS, banco.
+ install:
+-	sudo bash deploy/scripts/mspcp-install.sh $(if $(PVE_HOSTS),-p $(PVE_HOSTS),)
++	sudo bash deploy/scripts/mspvdc-install.sh $(if $(PVE_HOSTS),-p $(PVE_HOSTS),)
+diff --git a/README.md b/README.md
+index 90f2451..f1e2bbc 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# mspcp — versão utilizável mínima
++# mspvdc — versão utilizável mínima
+ 
+ Plano de controle multi-tenant sobre Proxmox VE, no modelo MultiPortal: **admin → MSP → cliente final**, cotas sem overcommit, VDCs por localização. Esta versão já serve para uso real em laboratório:
+ 
+@@ -13,23 +13,23 @@ Binário único em Go; PostgreSQL é a única dependência (a fila River roda no
+ 
+ ## Instalar no Debian 12 (laboratório)
+ 
+-A instalação não depende do Proxmox: os clusters são cadastrados depois, pelo portal. Numa VM Debian 12 limpa, com o código em `/root/mspcp`:
++A instalação não depende do Proxmox: os clusters são cadastrados depois, pelo portal. Numa VM Debian 12 limpa, com o código em `/root/mspvdc`:
+ 
+ ```bash
+-sudo bash /root/mspcp/deploy/scripts/mspcp-install.sh
++sudo bash /root/mspvdc/deploy/scripts/mspvdc-install.sh
+ ```
+ 
+-O script instala PostgreSQL, Go 1.24 e Node 22 (se faltarem), compila, cria o usuário de sistema `mspcp`, o banco com senha aleatória, a **chave mestra** que cifra os tokens dos clusters (`/etc/mspcp/master.key`, guarde uma cópia), um certificado autoassinado, `/etc/mspcp/mspcp.env` e os serviços `mspcp-api` e `mspcp-worker`. No fim mostra a **senha temporária do `admin`** (também em `/root/mspcp-admin.txt`). Os scripts ficam em `/etc/scripts/`.
++O script instala PostgreSQL, Go 1.24 e Node 22 (se faltarem), compila, cria o usuário de sistema `mspvdc`, o banco com senha aleatória, a **chave mestra** que cifra os tokens dos clusters (`/etc/mspvdc/master.key`, guarde uma cópia), um certificado autoassinado, `/etc/mspvdc/mspvdc.env` e os serviços `mspvdc-api` e `mspvdc-worker`. No fim mostra a **senha temporária do `admin`** (também em `/root/mspvdc-admin.txt`). Os scripts ficam em `/etc/scripts/`.
+ 
+-Acesse `https://<ip-da-vm>/` (a porta 80 redireciona), aceite o certificado e troque a senha no primeiro acesso. Para atualizar, com o código novo na mesma pasta: `sudo /etc/scripts/mspcp-install.sh` (idempotente: mantém banco, configuração, chave, certificado e usuários).
++Acesse `https://<ip-da-vm>/` (a porta 80 redireciona), aceite o certificado e troque a senha no primeiro acesso. Para atualizar, com o código novo na mesma pasta: `sudo /etc/scripts/mspvdc-install.sh` (idempotente: mantém banco, configuração, chave, certificado e usuários).
+ 
+ ### Cadastrar o cluster Proxmox (pelo portal)
+ 
+-1. **Token no Proxmox.** Copie o script para um node e rode como root; ele cria o papel `MSPCP` (só os privilégios que o portal usa), o usuário `mspcp@pve` (sem senha) e o token, e mostra o segredo:
++1. **Token no Proxmox.** Copie o script para um node e rode como root; ele cria o papel `MSPVDC` (só os privilégios que o portal usa), o usuário `mspvdc@pve` (sem senha) e o token, e mostra o segredo:
+ 
+    ```bash
+-   scp /etc/scripts/mspcp-pve-setup.sh /etc/scripts/mspcp-pve-template.sh root@10.0.0.11:/etc/scripts/
+-   ssh root@10.0.0.11 /etc/scripts/mspcp-pve-setup.sh
++   scp /etc/scripts/mspvdc-pve-setup.sh /etc/scripts/mspvdc-pve-template.sh root@10.0.0.11:/etc/scripts/
++   ssh root@10.0.0.11 /etc/scripts/mspvdc-pve-setup.sh
+    ```
+ 
+    (Ou pela interface do Proxmox: usuário com o papel, token em Datacenter › Permissões › API Tokens com separação de privilégios desligada.)
+@@ -41,15 +41,15 @@ Acesse `https://<ip-da-vm>/` (a porta 80 redireciona), aceite o certificado e tr
+    - **Reservas de MSP:** reserve vCPU, memória e storage por classe para cada MSP. A soma das reservas não passa a capacidade do cluster (threads × razão, memória dos nodes, tamanho do storage), e uma reserva não fica abaixo do que o MSP já distribuiu em VDCs.
+    - **Rede:** bridge padrão das VMs novas. **Conexão:** trocar endereço ou token (testado antes de salvar), renomear, desativar.
+ 
+-4. **Template:** `ssh root@10.0.0.11 /etc/scripts/mspcp-pve-template.sh -i debian12 -s local-lvm -v 9000` (também `debian13`, `ubuntu2204`, `ubuntu2404`), depois **Infraestrutura › Imagens › Publicar**.
++4. **Template:** `ssh root@10.0.0.11 /etc/scripts/mspvdc-pve-template.sh -i debian12 -s local-lvm -v 9000` (também `debian13`, `ubuntu2204`, `ubuntu2404`), depois **Infraestrutura › Imagens › Publicar**.
+ 
+ 5. **Contas:** crie o MSP (o uso próprio da mspclouds também é um MSP, ex. "mspclouds Direto"), os limites de quantidade dele (clientes, VDCs, servidores), clientes e VDCs. Depois **Recursos › Servidores › Nova VM**, ou **Atribuir a VDC** no menu ••• de uma VM que já existe.
+ 
+-Diagnóstico: `journalctl -u mspcp-api -u mspcp-worker -f`; na página do cluster aparece o último erro de sincronização. Senha perdida: `/etc/scripts/mspcp-cli.sh reset-password -user admin`.
++Diagnóstico: `journalctl -u mspvdc-api -u mspvdc-worker -f`; na página do cluster aparece o último erro de sincronização. Senha perdida: `/etc/scripts/mspvdc-cli.sh reset-password -user admin`.
+ 
+ ### Certificado próprio
+ 
+-Troque `TLS_CERT_FILE` e `TLS_KEY_FILE` em `/etc/mspcp/mspcp.env` (o usuário `mspcp` precisa ler os arquivos) e `systemctl restart mspcp-api`. Atrás de um Nginx, use `LISTEN_ADDR=127.0.0.1:8080`, apague as linhas `TLS_*` e `HTTP_REDIRECT_ADDR`, e ligue `TRUST_PROXY_HEADERS=true` (o proxy precisa repassar `X-Forwarded-Proto` e aceitar WebSocket em `/v1/console/`).
++Troque `TLS_CERT_FILE` e `TLS_KEY_FILE` em `/etc/mspvdc/mspvdc.env` (o usuário `mspvdc` precisa ler os arquivos) e `systemctl restart mspvdc-api`. Atrás de um Nginx, use `LISTEN_ADDR=127.0.0.1:8080`, apague as linhas `TLS_*` e `HTTP_REDIRECT_ADDR`, e ligue `TRUST_PROXY_HEADERS=true` (o proxy precisa repassar `X-Forwarded-Proto` e aceitar WebSocket em `/v1/console/`).
+ 
+ ## Ver funcionando sem Proxmox (demo)
+ 
+@@ -97,30 +97,30 @@ Sem Docker: `apt install -y postgresql && make db-local`, exporte as variáveis
+ 
+ - **Senhas** com argon2id; senha temporária obrigatoriamente trocada; mínimo de 10 caracteres.
+ - **Sessão** em cookie `HttpOnly`, `Secure` (com HTTPS) e `SameSite=Strict`; o banco guarda só o SHA-256 do token. Expira após 8 h sem uso e 7 dias no máximo. Trocar a senha encerra as outras sessões; resetar ou remover o último acesso encerra todas.
+-- **CSRF:** toda requisição que altera algo exige o cabeçalho `X-MSPCP`, que outro site não consegue enviar.
++- **CSRF:** toda requisição que altera algo exige o cabeçalho `X-MSPVDC`, que outro site não consegue enviar.
+ - **Tentativas:** 5 erros seguidos de um IP para um usuário bloqueiam por 1 minuto; 30 erros de um IP, por 10 minutos. Usuário inexistente gasta o mesmo tempo que senha errada.
+ - **2FA** TOTP (RFC 6238, 6 dígitos, janela de ±30 s), confirmado com um código antes de valer.
+ - **Gestão de usuários:** só reseta a senha de alguém quem pode dar todos os papéis que essa pessoa tem.
+ - **Senha da VM** sai do navegador e vira hash SHA-512 (`$6$`) na API; o texto puro não é gravado nem enviado ao Proxmox.
+ - **Console:** ticket de uso único, válido por 30 s e preso ao usuário; o WebSocket confere a origem; a API fala com o Proxmox com o token do cluster e só repassa os bytes.
+ - **Isolamento:** toda consulta recebe o escopo do usuário e filtra no SQL; fora do escopo é 404. Respostas para tenants não têm `vmid`, node, cluster, pool, bridge nem template.
+-- **Proxmox:** token cifrado no banco (AES-256-GCM, chave em `/etc/mspcp/master.key`, fora do banco); certificado do cluster fixado no cadastro (ou CA pública validada pelo nome); cadastro só depois de testar a conexão; sem redirects nem proxy; o portal não conecta em loopback nem link-local, e `PROXMOX_ALLOWED_HOSTS` restringe ainda mais se definido.
++- **Proxmox:** token cifrado no banco (AES-256-GCM, chave em `/etc/mspvdc/master.key`, fora do banco); certificado do cluster fixado no cadastro (ou CA pública validada pelo nome); cadastro só depois de testar a conexão; sem redirects nem proxy; o portal não conecta em loopback nem link-local, e `PROXMOX_ALLOWED_HOSTS` restringe ainda mais se definido.
+ - **Auditoria** append-only de logins, mudanças de senha e 2FA, usuários, criação, exclusão, atribuição, console e ações.
+ - **systemd:** serviços sem root, `ProtectSystem=strict`, só `CAP_NET_BIND_SERVICE` para as portas 80/443.
+ 
+-## Configuração (`/etc/mspcp/mspcp.env`)
++## Configuração (`/etc/mspvdc/mspvdc.env`)
+ 
+ | Variável | Uso | Padrão |
+ | --- | --- | --- |
+ | `DATABASE_URL` | PostgreSQL | obrigatória |
+ | `AUTH_MODE` | `local` (login do portal) ou `oidc` (Keycloak) | `local` |
+-| `PRODUCT_NAME` | nome na tela de login e no app autenticador | `mspcp` |
++| `PRODUCT_NAME` | nome na tela de login e no app autenticador | `mspvdc` |
+ | `LISTEN_ADDR` | endereço da API e do portal | `:8443` (`:443` no script) |
+ | `TLS_CERT_FILE`, `TLS_KEY_FILE` | HTTPS próprio; vazios = HTTP (só atrás de proxy) | vazios |
+ | `HTTP_REDIRECT_ADDR` | porta que só redireciona para HTTPS, ex. `:80` | vazio |
+-| `MASTER_KEY_FILE` | chave (64 hex) que cifra os tokens dos clusters no banco | `/etc/mspcp/master.key` no script |
++| `MASTER_KEY_FILE` | chave (64 hex) que cifra os tokens dos clusters no banco | `/etc/mspvdc/master.key` no script |
+ | `PROXMOX_ALLOWED_HOSTS` | opcional: restringe os hosts do Proxmox (`host[:porta]`, vírgula) | vazio (qualquer, menos loopback/link-local) |
+-| `SECRETS_DIR` | segredos `file:<nome>` (legado) | `/etc/mspcp/secrets` |
++| `SECRETS_DIR` | segredos `file:<nome>` (legado) | `/etc/mspvdc/secrets` |
+ | `WEB_DIR` | build do portal | vazio (só API) |
+ | `SYNC_INTERVAL` | intervalo do sincronizador | `20s` |
+ | `WORKER_CONCURRENCY` | tarefas simultâneas | `50` |
+@@ -130,26 +130,26 @@ Sem Docker: `apt install -y postgresql && make db-local`, exporte as variáveis
+ ### Comandos
+ 
+ ```
+-mspcp migrate                         aplica migrations (o serviço já roda ao subir)
+-mspcp bootstrap -name N -admin USER   cria o provedor e o 1º admin (senha temporária)
+-mspcp reset-password -user USER       nova senha temporária (e desliga o 2FA)
+-mspcp cluster-add -name ... -url ... -token-id ... -secret-file -   (alternativa ao portal)
+-mspcp api | worker                    os serviços
++mspvdc migrate                         aplica migrations (o serviço já roda ao subir)
++mspvdc bootstrap -name N -admin USER   cria o provedor e o 1º admin (senha temporária)
++mspvdc reset-password -user USER       nova senha temporária (e desliga o 2FA)
++mspvdc cluster-add -name ... -url ... -token-id ... -secret-file -   (alternativa ao portal)
++mspvdc api | worker                    os serviços
+ ```
+ 
+-No servidor instalado, use `/etc/scripts/mspcp-cli.sh <comando>`: ele carrega o `mspcp.env`.
++No servidor instalado, use `/etc/scripts/mspvdc-cli.sh <comando>`: ele carrega o `mspvdc.env`.
+ 
+ ### Privilégios do token no Proxmox
+ 
+-`VM.Audit VM.PowerMgmt VM.Console VM.Clone VM.Allocate VM.Config.{CDROM,CPU,Cloudinit,Disk,HWType,Memory,Network,Options} VM.GuestAgent.Audit Datastore.Audit Datastore.AllocateSpace Pool.Allocate Pool.Audit Sys.Audit SDN.Use`, em `/`. O `mspcp-pve-setup.sh` ignora os que não existirem na versão do PVE. Pools usam a API do PVE 8.1+ (`PUT /pools` com `allow-move`), com recuo para a antiga.
++`VM.Audit VM.PowerMgmt VM.Console VM.Clone VM.Allocate VM.Config.{CDROM,CPU,Cloudinit,Disk,HWType,Memory,Network,Options} VM.GuestAgent.Audit Datastore.Audit Datastore.AllocateSpace Pool.Allocate Pool.Audit Sys.Audit SDN.Use`, em `/`. O `mspvdc-pve-setup.sh` ignora os que não existirem na versão do PVE. Pools usam a API do PVE 8.1+ (`PUT /pools` com `allow-move`), com recuo para a antiga.
+ 
+ ### Keycloak (opcional)
+ 
+-`AUTH_MODE=oidc`. No realm, client público `mspcp-portal` com Standard flow, PKCE `S256`, redirect `https://portal/callback`, web origin `https://portal` e um mapper Audience com `mspcp-portal`. Bootstrap com `-oidc -admin <sub>`. Em "Usuários", o portal passa a vincular o `sub` do Keycloak em vez de criar usuário local.
++`AUTH_MODE=oidc`. No realm, client público `mspvdc-portal` com Standard flow, PKCE `S256`, redirect `https://portal/callback`, web origin `https://portal` e um mapper Audience com `mspvdc-portal`. Bootstrap com `-oidc -admin <sub>`. Em "Usuários", o portal passa a vincular o `sub` do Keycloak em vez de criar usuário local.
+ 
+ ## API v1
+ 
+-Login local: `POST /auth/login {username, password, totp?}` devolve o cookie de sessão (ou `{"need_totp": true}`); `POST /auth/logout`. Toda chamada que altera algo leva `X-MSPCP: 1`. Com OIDC, `Authorization: Bearer <token>`.
++Login local: `POST /auth/login {username, password, totp?}` devolve o cookie de sessão (ou `{"need_totp": true}`); `POST /auth/logout`. Toda chamada que altera algo leva `X-MSPVDC: 1`. Com OIDC, `Authorization: Bearer <token>`.
+ 
+ | Método e rota | Quem | Faz |
+ | --- | --- | --- |
+@@ -192,9 +192,9 @@ cd web && npm run dev            # portal com recarga em :5173 (proxy para a API
+ **Nota sobre `go.sum`:** o projeto foi montado num ambiente sem acesso a `proxy.golang.org`, então o `go.sum` não traz as linhas de `golang.org/x/*`, `gopkg.in/*` e `go.uber.org/goleak`. O script de instalação roda `go mod tidy`; em desenvolvimento, rode uma vez.
+ 
+ ```
+-cmd/mspcp/           binário: migrate | bootstrap | reset-password | cluster-add | api | worker
++cmd/mspvdc/           binário: migrate | bootstrap | reset-password | cluster-add | api | worker
+ cmd/devstack/        demonstração: PVEs simulados + api + worker + portal
+-deploy/              scripts (/etc/scripts), units systemd e modelo do mspcp.env
++deploy/              scripts (/etc/scripts), units systemd e modelo do mspvdc.env
+ web/                 portal React + TypeScript (Vite), noVNC no console
+ internal/api/        rotas HTTP, login local, console, VMs (+ testes ponta a ponta)
+ internal/localauth/  argon2id, TOTP, limitador de tentativas, crypt SHA-512
+diff --git a/cmd/devstack/main.go b/cmd/devstack/main.go
+index 08bd97a..5d0ef53 100644
+--- a/cmd/devstack/main.go
++++ b/cmd/devstack/main.go
+@@ -1,4 +1,4 @@
+-// devstack sobe o mspcp inteiro para desenvolvimento e demonstração, sem
++// devstack sobe o mspvdc inteiro para desenvolvimento e demonstração, sem
+ // Proxmox real: dois clusters PVE simulados (Cirion e Ascenty, com templates
+ // e console), usuários locais prontos, API, worker e o portal.
+ //
+@@ -34,21 +34,21 @@ import (
+ 	"github.com/jackc/pgx/v5"
+ 	"github.com/jackc/pgx/v5/pgxpool"
+ 
+-	"github.com/mspclouds/mspcp/internal/api"
+-	"github.com/mspclouds/mspcp/internal/db"
+-	"github.com/mspclouds/mspcp/internal/inventory"
+-	"github.com/mspclouds/mspcp/internal/jobs"
+-	"github.com/mspclouds/mspcp/internal/localauth"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/quota"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/secrets"
+-	"github.com/mspclouds/mspcp/internal/store"
+-	"github.com/mspclouds/mspcp/internal/testutil"
++	"github.com/vitordatasafer/mspvdc/internal/api"
++	"github.com/vitordatasafer/mspvdc/internal/db"
++	"github.com/vitordatasafer/mspvdc/internal/inventory"
++	"github.com/vitordatasafer/mspvdc/internal/jobs"
++	"github.com/vitordatasafer/mspvdc/internal/localauth"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/quota"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/secrets"
++	"github.com/vitordatasafer/mspvdc/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/testutil"
+ )
+ 
+ const (
+-	tokenID      = "portal@pve!mspcp"
++	tokenID      = "portal@pve!mspvdc"
+ 	secret       = "segredo-de-demonstracao"
+ 	demoPassword = "demo12345"
+ )
+@@ -137,7 +137,7 @@ func run(ctx context.Context, log *slog.Logger, dsn, web string, cfg listenCfg,
+ 	}
+ 
+ 	// Worker + sincronizador.
+-	os.Setenv("MSPCP_DEMO_PVE_SECRET", secret)
++	os.Setenv("MSPVDC_DEMO_PVE_SECRET", secret)
+ 	// PVEs simulados em 127.0.0.1; PROXMOX_ALLOWED_HOSTS libera um Proxmox real
+ 	// para testar o cadastro pela tela.
+ 	allow := proxmox.ParseAllowlist("127.0.0.1," + os.Getenv("PROXMOX_ALLOWED_HOSTS"))
+@@ -165,7 +165,7 @@ func run(ctx context.Context, log *slog.Logger, dsn, web string, cfg listenCfg,
+ 	}
+ 	srv := &api.Server{
+ 		Pool: pool, River: inserter, Allow: allow, Clients: clients, Log: log, WebDir: web,
+-		AuthMode: "local", ProductName: "mspcp demo", DemoHint: "Demonstração: usuários vitor, noc, carla, marcos, julia e leo; senha " + demoPassword,
++		AuthMode: "local", ProductName: "mspvdc demo", DemoHint: "Demonstração: usuários vitor, noc, carla, marcos, julia e leo; senha " + demoPassword,
+ 	}
+ 	go serve(ctx, log, cfg, srv.Handler())
+ 
+@@ -182,7 +182,7 @@ func run(ctx context.Context, log *slog.Logger, dsn, web string, cfg listenCfg,
+ // demoBox guarda a chave mestra da demo num arquivo temporário, para um
+ // cluster cadastrado pela tela continuar funcionando depois de reiniciar.
+ func demoBox() (*secrets.Box, error) {
+-	path := filepath.Join(os.TempDir(), "mspcp-demo-master.key")
++	path := filepath.Join(os.TempDir(), "mspvdc-demo-master.key")
+ 	if _, err := os.Stat(path); os.IsNotExist(err) {
+ 		key := make([]byte, 32)
+ 		if _, err := rand.Read(key); err != nil {
+@@ -222,7 +222,7 @@ func selfSigned(host string) (tls.Certificate, *x509.CertPool, error) {
+ 	}
+ 	tpl := &x509.Certificate{
+ 		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+-		Subject:               pkix.Name{CommonName: "mspcp demo " + host, Organization: []string{"mspcp devstack"}},
++		Subject:               pkix.Name{CommonName: "mspvdc demo " + host, Organization: []string{"mspvdc devstack"}},
+ 		NotBefore:             time.Now().Add(-time.Hour),
+ 		NotAfter:              time.Now().Add(30 * 24 * time.Hour),
+ 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+@@ -342,7 +342,7 @@ func seedTree(ctx context.Context, st *store.Store, cirion, ascenty *testutil.Fa
+ 		pve           *testutil.FakePVE
+ 	}{{"cirion-01", "Cirion", "São Paulo 1", cirion}, {"ascenty-01", "Ascenty", "São Paulo 2", ascenty}} {
+ 		cl, err := st.CreateCluster(ctx, store.Cluster{Name: c.name, DC: c.dc, Location: c.loc, APIURL: c.pve.Server.URL,
+-			CACertPEM: c.pve.CAPEM(), TokenID: tokenID, TokenSecretRef: "env:MSPCP_DEMO_PVE_SECRET", CPURatio: 4})
++			CACertPEM: c.pve.CAPEM(), TokenID: tokenID, TokenSecretRef: "env:MSPVDC_DEMO_PVE_SECRET", CPURatio: 4})
+ 		if err != nil {
+ 			return err
+ 		}
+diff --git a/cmd/mspcp/main.go b/cmd/mspvdc/main.go
+similarity index 91%
+rename from cmd/mspcp/main.go
+rename to cmd/mspvdc/main.go
+index 6f7e3fd..f4f28d4 100644
+--- a/cmd/mspcp/main.go
++++ b/cmd/mspvdc/main.go
+@@ -1,11 +1,11 @@
+ // Binário único com subcomandos:
+ //
+-//	mspcp migrate                         aplica migrations (schema + River)
+-//	mspcp bootstrap -name N -admin USER   cria o provedor e o 1º super_admin (senha temporária)
+-//	mspcp reset-password -user USER       nova senha temporária (e desliga o 2FA)
+-//	mspcp cluster-add ...                 cadastra um cluster Proxmox e guarda o segredo do token
+-//	mspcp api                             sobe a API HTTP(S) e o portal
+-//	mspcp worker                          sobe sincronizador + executor de Tasks
++//	mspvdc migrate                         aplica migrations (schema + River)
++//	mspvdc bootstrap -name N -admin USER   cria o provedor e o 1º super_admin (senha temporária)
++//	mspvdc reset-password -user USER       nova senha temporária (e desliga o 2FA)
++//	mspvdc cluster-add ...                 cadastra um cluster Proxmox e guarda o segredo do token
++//	mspvdc api                             sobe a API HTTP(S) e o portal
++//	mspvdc worker                          sobe sincronizador + executor de Tasks
+ package main
+ 
+ import (
+@@ -28,21 +28,21 @@ import (
+ 
+ 	"github.com/jackc/pgx/v5"
+ 
+-	"github.com/mspclouds/mspcp/internal/api"
+-	"github.com/mspclouds/mspcp/internal/auth"
+-	"github.com/mspclouds/mspcp/internal/db"
+-	"github.com/mspclouds/mspcp/internal/inventory"
+-	"github.com/mspclouds/mspcp/internal/jobs"
+-	"github.com/mspclouds/mspcp/internal/localauth"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/secrets"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/api"
++	"github.com/vitordatasafer/mspvdc/internal/auth"
++	"github.com/vitordatasafer/mspvdc/internal/db"
++	"github.com/vitordatasafer/mspvdc/internal/inventory"
++	"github.com/vitordatasafer/mspvdc/internal/jobs"
++	"github.com/vitordatasafer/mspvdc/internal/localauth"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/secrets"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ func main() {
+ 	if len(os.Args) < 2 {
+-		fmt.Fprintln(os.Stderr, "uso: mspcp <migrate|bootstrap|reset-password|cluster-add|api|worker>")
++		fmt.Fprintln(os.Stderr, "uso: mspvdc <migrate|bootstrap|reset-password|cluster-add|api|worker>")
+ 		os.Exit(2)
+ 	}
+ 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+@@ -312,7 +312,7 @@ func masterBox(log *slog.Logger) (*secrets.Box, error) {
+ }
+ 
+ func secretsResolver() secrets.Resolver {
+-	return secrets.Multi{"file": secrets.Dir(envOr("SECRETS_DIR", "/etc/mspcp/secrets")), "env": secrets.Env{}}
++	return secrets.Multi{"file": secrets.Dir(envOr("SECRETS_DIR", "/etc/mspvdc/secrets")), "env": secrets.Env{}}
+ }
+ 
+ func runAPI(ctx context.Context, log *slog.Logger) error {
+@@ -334,7 +334,7 @@ func runAPI(ctx context.Context, log *slog.Logger) error {
+ 	srv := &api.Server{
+ 		Pool:              pool,
+ 		AuthMode:          envOr("AUTH_MODE", "local"),
+-		ProductName:       envOr("PRODUCT_NAME", "mspcp"),
++		ProductName:       envOr("PRODUCT_NAME", "mspvdc"),
+ 		River:             rc,
+ 		Allow:             allow,
+ 		Clients:           proxmox.NewClients(allow, secretsResolver(), box),
+diff --git a/deploy/mspcp.env.example b/deploy/mspvdc.env.example
+similarity index 64%
+rename from deploy/mspcp.env.example
+rename to deploy/mspvdc.env.example
+index 72e5edb..4a7d53c 100644
+--- a/deploy/mspcp.env.example
++++ b/deploy/mspvdc.env.example
+@@ -1,7 +1,7 @@
+-# /etc/mspcp/mspcp.env — lido pelos serviços mspcp-api e mspcp-worker.
+-# Depois de editar: systemctl restart mspcp-api mspcp-worker
++# /etc/mspvdc/mspvdc.env — lido pelos serviços mspvdc-api e mspvdc-worker.
++# Depois de editar: systemctl restart mspvdc-api mspvdc-worker
+ 
+-DATABASE_URL=postgres://mspcp:SENHA@127.0.0.1:5432/mspcp?sslmode=disable
++DATABASE_URL=postgres://mspvdc:SENHA@127.0.0.1:5432/mspvdc?sslmode=disable
+ 
+ # Login: local (usuário, senha e 2FA no próprio portal) ou oidc (Keycloak).
+ AUTH_MODE=local
+@@ -9,16 +9,16 @@ AUTH_MODE=local
+ PRODUCT_NAME=mspclouds
+ 
+ # HTTPS próprio. Troque pelos arquivos do seu certificado quando tiver um
+-# (ex.: Let's Encrypt). O serviço lê como usuário mspcp.
++# (ex.: Let's Encrypt). O serviço lê como usuário mspvdc.
+ LISTEN_ADDR=:443
+-TLS_CERT_FILE=/etc/mspcp/tls/server.crt
+-TLS_KEY_FILE=/etc/mspcp/tls/server.key
++TLS_CERT_FILE=/etc/mspvdc/tls/server.crt
++TLS_KEY_FILE=/etc/mspvdc/tls/server.key
+ # Porta 80 só redireciona para HTTPS (vazio = desligado).
+ HTTP_REDIRECT_ADDR=:80
+ 
+ # Chave que cifra os tokens dos clusters guardados no banco. Gerada na
+ # instalação; sem ela os clusters cadastrados não conectam (faça backup).
+-MASTER_KEY_FILE=/etc/mspcp/master.key
++MASTER_KEY_FILE=/etc/mspvdc/master.key
+ 
+ # Opcional: restringe os hosts do Proxmox que o portal pode acessar
+ # (host ou host:porta, separados por vírgula). Vazio = qualquer host
+@@ -26,9 +26,9 @@ MASTER_KEY_FILE=/etc/mspcp/master.key
+ PROXMOX_ALLOWED_HOSTS=
+ 
+ # Segredos em arquivo (legado, referências file:<nome>).
+-SECRETS_DIR=/etc/mspcp/secrets
++SECRETS_DIR=/etc/mspvdc/secrets
+ 
+-WEB_DIR=/usr/share/mspcp/web
++WEB_DIR=/usr/share/mspvdc/web
+ SYNC_INTERVAL=20s
+ WORKER_CONCURRENCY=20
+ # true só atrás de um proxy reverso (Nginx) que define X-Forwarded-For/Proto.
+@@ -37,6 +37,6 @@ LOG_LEVEL=info
+ 
+ # Só com AUTH_MODE=oidc:
+ # OIDC_ISSUER=https://sso.exemplo.com.br/realms/mspclouds
+-# OIDC_AUDIENCE=mspcp-portal
+-# OIDC_CLIENT_ID=mspcp-portal
+-# OIDC_CA_FILE=/etc/mspcp/keycloak-ca.pem
++# OIDC_AUDIENCE=mspvdc-portal
++# OIDC_CLIENT_ID=mspvdc-portal
++# OIDC_CA_FILE=/etc/mspvdc/keycloak-ca.pem
+diff --git a/deploy/scripts/mspcp-cli.sh b/deploy/scripts/mspcp-cli.sh
+deleted file mode 100755
+index ef31c4e..0000000
+--- a/deploy/scripts/mspcp-cli.sh
++++ /dev/null
+@@ -1,13 +0,0 @@
+-#!/usr/bin/env bash
+-# mspcp-cli.sh — roda o binário mspcp com a configuração dos serviços.
+-#
+-#   /etc/scripts/mspcp-cli.sh reset-password -user admin
+-#   /etc/scripts/mspcp-cli.sh cluster-add -name lab-01 -dc Lab -location "Laboratório" \
+-#       -url https://10.0.0.11:8006 -ca-file /etc/mspcp/lab-01-ca.pem \
+-#       -token-id 'mspcp@pve!portal' -secret-file -
+-set -euo pipefail
+-[ "$(id -u)" -eq 0 ] || { echo "rode como root (sudo)" >&2; exit 1; }
+-set -a
+-. /etc/mspcp/mspcp.env
+-set +a
+-exec /usr/local/bin/mspcp "$@"
+diff --git a/deploy/scripts/mspvdc-cli.sh b/deploy/scripts/mspvdc-cli.sh
+new file mode 100755
+index 0000000..505da36
+--- /dev/null
++++ b/deploy/scripts/mspvdc-cli.sh
+@@ -0,0 +1,13 @@
++#!/usr/bin/env bash
++# mspvdc-cli.sh — roda o binário mspvdc com a configuração dos serviços.
++#
++#   /etc/scripts/mspvdc-cli.sh reset-password -user admin
++#   /etc/scripts/mspvdc-cli.sh cluster-add -name lab-01 -dc Lab -location "Laboratório" \
++#       -url https://10.0.0.11:8006 -ca-file /etc/mspvdc/lab-01-ca.pem \
++#       -token-id 'mspvdc@pve!portal' -secret-file -
++set -euo pipefail
++[ "$(id -u)" -eq 0 ] || { echo "rode como root (sudo)" >&2; exit 1; }
++set -a
++. /etc/mspvdc/mspvdc.env
++set +a
++exec /usr/local/bin/mspvdc "$@"
+diff --git a/deploy/scripts/mspcp-install.sh b/deploy/scripts/mspvdc-install.sh
+similarity index 70%
+rename from deploy/scripts/mspcp-install.sh
+rename to deploy/scripts/mspvdc-install.sh
+index aadce5f..4ef083e 100755
+--- a/deploy/scripts/mspcp-install.sh
++++ b/deploy/scripts/mspvdc-install.sh
+@@ -1,14 +1,14 @@
+ #!/usr/bin/env bash
+-# mspcp-install.sh — instala ou atualiza o mspcp num Debian 12.
++# mspvdc-install.sh — instala ou atualiza o mspvdc num Debian 12.
+ #
+-# Fica em /etc/scripts/mspcp-install.sh. Na primeira vez, rode a partir do
++# Fica em /etc/scripts/mspvdc-install.sh. Na primeira vez, rode a partir do
+ # código-fonte:
+ #
+-#   sudo bash deploy/scripts/mspcp-install.sh
++#   sudo bash deploy/scripts/mspvdc-install.sh
+ #
+ # Depois, para atualizar (código novo na mesma pasta):
+ #
+-#   sudo /etc/scripts/mspcp-install.sh
++#   sudo /etc/scripts/mspvdc-install.sh
+ #
+ # Opções:
+ #   -s DIR    pasta do código-fonte (padrão: a pasta de onde o script veio,
+@@ -17,20 +17,20 @@
+ #             acessar (PROXMOX_ALLOWED_HOSTS). Os clusters são cadastrados
+ #             depois, pelo portal (Infraestrutura › Clusters).
+ #   -n NOME   nome ou IP pelo qual o portal é acessado (vai no certificado)
+-#   -k        não compila: usa bin/mspcp e web/dist que já estão no código
++#   -k        não compila: usa bin/mspvdc e web/dist que já estão no código
+ #
+ # O que faz: instala PostgreSQL, Go e Node (se faltarem), compila, cria o
+-# usuário de sistema mspcp, o banco, o certificado autoassinado, o
+-# /etc/mspcp/mspcp.env, os serviços systemd (mspcp-api e mspcp-worker), roda
++# usuário de sistema mspvdc, o banco, o certificado autoassinado, o
++# /etc/mspvdc/mspvdc.env, os serviços systemd (mspvdc-api e mspvdc-worker), roda
+ # as migrations e, na primeira vez, cria o administrador e mostra a senha.
+ set -euo pipefail
+ 
+ GO_VERSION=1.24.7
+ NODE_VERSION=22.12.0
+-ETC=/etc/mspcp
++ETC=/etc/mspvdc
+ SCRIPTS=/etc/scripts
+-WEB=/usr/share/mspcp/web
+-BIN=/usr/local/bin/mspcp
++WEB=/usr/share/mspvdc/web
++BIN=/usr/local/bin/mspvdc
+ 
+ log() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
+ die() { printf '\n\033[1;31merro:\033[0m %s\n' "$*" >&2; exit 1; }
+@@ -55,9 +55,9 @@ here=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+ if [ -z "$SRC" ]; then
+   if [ -f "$here/../../go.mod" ]; then SRC=$(cd "$here/../.." && pwd)
+   elif [ -f "$ETC/source-dir" ]; then SRC=$(cat "$ETC/source-dir")
+-  else die "não achei o código-fonte; use -s /caminho/do/mspcp"; fi
++  else die "não achei o código-fonte; use -s /caminho/do/mspvdc"; fi
+ fi
+-[ -f "$SRC/go.mod" ] && [ -d "$SRC/web" ] || die "$SRC não parece o código do mspcp."
++[ -f "$SRC/go.mod" ] && [ -d "$SRC/web" ] || die "$SRC não parece o código do mspvdc."
+ 
+ case "$(uname -m)" in
+   x86_64) GOARCH=amd64 NODEARCH=x64 ;;
+@@ -94,50 +94,50 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
+   export GOTOOLCHAIN=local CGO_ENABLED=0
+   go mod tidy
+   mkdir -p bin
+-  go build -trimpath -ldflags="-s -w" -o bin/mspcp ./cmd/mspcp
++  go build -trimpath -ldflags="-s -w" -o bin/mspvdc ./cmd/mspvdc
+ 
+   log "Compilando o portal (Node $(node --version))"
+   cd "$SRC/web"
+   npm ci --no-audit --no-fund --loglevel=error
+   npm run build --silent
+ fi
+-[ -x "$SRC/bin/mspcp" ] || die "$SRC/bin/mspcp não existe (rode sem -k)."
++[ -x "$SRC/bin/mspvdc" ] || die "$SRC/bin/mspvdc não existe (rode sem -k)."
+ [ -f "$SRC/web/dist/index.html" ] || die "$SRC/web/dist não existe (rode sem -k)."
+ 
+ # ---------- usuário, pastas e arquivos ----------
+ log "Usuário de sistema e pastas"
+-id mspcp >/dev/null 2>&1 || useradd --system --home-dir /var/lib/mspcp --create-home --shell /usr/sbin/nologin mspcp
+-install -d -m 0750 -o root -g mspcp "$ETC" "$ETC/tls"
+-install -d -m 0700 -o mspcp -g mspcp "$ETC/secrets"
+-install -d -m 0755 "$SCRIPTS" /usr/share/mspcp /usr/share/doc/mspcp
++id mspvdc >/dev/null 2>&1 || useradd --system --home-dir /var/lib/mspvdc --create-home --shell /usr/sbin/nologin mspvdc
++install -d -m 0750 -o root -g mspvdc "$ETC" "$ETC/tls"
++install -d -m 0700 -o mspvdc -g mspvdc "$ETC/secrets"
++install -d -m 0755 "$SCRIPTS" /usr/share/mspvdc /usr/share/doc/mspvdc
+ echo "$SRC" > "$ETC/source-dir"
+ 
+-install -m 0755 "$SRC/bin/mspcp" "$BIN.new" && mv -f "$BIN.new" "$BIN"
++install -m 0755 "$SRC/bin/mspvdc" "$BIN.new" && mv -f "$BIN.new" "$BIN"
+ rm -rf "$WEB.new" && cp -r "$SRC/web/dist" "$WEB.new"
+ rm -rf "$WEB.old" && { [ -d "$WEB" ] && mv "$WEB" "$WEB.old" || true; } && mv "$WEB.new" "$WEB" && rm -rf "$WEB.old"
+-install -m 0644 "$SRC/README.md" /usr/share/doc/mspcp/README.md
++install -m 0644 "$SRC/README.md" /usr/share/doc/mspvdc/README.md
+ for f in "$SRC"/deploy/scripts/*.sh; do install -m 0755 "$f" "$SCRIPTS/$(basename "$f")"; done
+-install -m 0644 "$SRC"/deploy/systemd/mspcp-*.service /etc/systemd/system/
++install -m 0644 "$SRC"/deploy/systemd/mspvdc-*.service /etc/systemd/system/
+ 
+ # ---------- PostgreSQL ----------
+ log "Banco de dados"
+ systemctl enable --now postgresql >/dev/null
+ DB_PASS=""
+-if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = 'mspcp'" | grep -q 1; then
++if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = 'mspvdc'" | grep -q 1; then
+   DB_PASS=$(openssl rand -hex 24)
+-  runuser -u postgres -- psql -q -c "CREATE ROLE mspcp LOGIN PASSWORD '$DB_PASS'"
++  runuser -u postgres -- psql -q -c "CREATE ROLE mspvdc LOGIN PASSWORD '$DB_PASS'"
+ fi
+-if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'mspcp'" | grep -q 1; then
+-  runuser -u postgres -- createdb -O mspcp mspcp
++if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'mspvdc'" | grep -q 1; then
++  runuser -u postgres -- createdb -O mspvdc mspvdc
+ fi
+ 
+ # ---------- configuração ----------
+-ENV="$ETC/mspcp.env"
++ENV="$ETC/mspvdc.env"
+ if [ ! -f "$ENV" ]; then
+   log "Criando $ENV"
+-  [ -n "$DB_PASS" ] || die "o papel mspcp já existe no PostgreSQL mas $ENV não; recrie o arquivo a partir de deploy/mspcp.env.example com a senha certa."
+-  sed -e "s|postgres://mspcp:SENHA@|postgres://mspcp:${DB_PASS}@|" "$SRC/deploy/mspcp.env.example" > "$ENV"
+-  chown root:mspcp "$ENV"; chmod 0640 "$ENV"
++  [ -n "$DB_PASS" ] || die "o papel mspvdc já existe no PostgreSQL mas $ENV não; recrie o arquivo a partir de deploy/mspvdc.env.example com a senha certa."
++  sed -e "s|postgres://mspvdc:SENHA@|postgres://mspvdc:${DB_PASS}@|" "$SRC/deploy/mspvdc.env.example" > "$ENV"
++  chown root:mspvdc "$ENV"; chmod 0640 "$ENV"
+ fi
+ if [ -n "$PVE_HOSTS" ]; then
+   sed -i "s|^PROXMOX_ALLOWED_HOSTS=.*|PROXMOX_ALLOWED_HOSTS=${PVE_HOSTS}|" "$ENV"
+@@ -147,7 +147,7 @@ fi
+ if [ ! -f "$ETC/master.key" ]; then
+   log "Chave mestra"
+   ( umask 027; openssl rand -hex 32 > "$ETC/master.key" )
+-  chown root:mspcp "$ETC/master.key"; chmod 0640 "$ETC/master.key"
++  chown root:mspvdc "$ETC/master.key"; chmod 0640 "$ETC/master.key"
+ fi
+ grep -q '^MASTER_KEY_FILE=' "$ENV" || printf '\nMASTER_KEY_FILE=%s/master.key\n' "$ETC" >> "$ENV"
+ 
+@@ -159,23 +159,23 @@ if [ ! -f "$ETC/tls/server.crt" ]; then
+   for ip in $(hostname -I); do san="$san,IP:$ip"; done
+   if [[ "$PUBLIC_NAME" =~ ^[0-9.]+$ ]]; then san="$san,IP:$PUBLIC_NAME"; else san="$san,DNS:$PUBLIC_NAME"; fi
+   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 825 \
+-    -subj "/CN=${PUBLIC_NAME}/O=mspcp" -addext "subjectAltName=${san}" \
++    -subj "/CN=${PUBLIC_NAME}/O=mspvdc" -addext "subjectAltName=${san}" \
+     -addext "extendedKeyUsage=serverAuth" \
+     -keyout "$ETC/tls/server.key" -out "$ETC/tls/server.crt" 2>/dev/null
+-  chown root:mspcp "$ETC/tls/server.key" "$ETC/tls/server.crt"
++  chown root:mspvdc "$ETC/tls/server.key" "$ETC/tls/server.crt"
+   chmod 0640 "$ETC/tls/server.key"; chmod 0644 "$ETC/tls/server.crt"
+ fi
+ 
+ # ---------- migrations e administrador ----------
+ log "Migrations"
+ set -a; . "$ENV"; set +a
+-runuser -u mspcp -- "$BIN" migrate
++runuser -u mspvdc -- "$BIN" migrate
+ 
+-ADMIN_FILE=/root/mspcp-admin.txt
+-has_provider=$(runuser -u postgres -- psql -d mspcp -tAc "SELECT count(*) FROM tenants WHERE kind = 'provider'")
++ADMIN_FILE=/root/mspvdc-admin.txt
++has_provider=$(runuser -u postgres -- psql -d mspvdc -tAc "SELECT count(*) FROM tenants WHERE kind = 'provider'")
+ if [ "$has_provider" = 0 ]; then
+   log "Criando o administrador"
+-  out=$(runuser -u mspcp -- "$BIN" bootstrap -name "${PRODUCT_NAME:-mspclouds}" -admin admin)
++  out=$(runuser -u mspvdc -- "$BIN" bootstrap -name "${PRODUCT_NAME:-mspclouds}" -admin admin)
+   umask 077; echo "$out" > "$ADMIN_FILE"
+   echo "$out"
+ fi
+@@ -183,8 +183,8 @@ fi
+ # ---------- serviços ----------
+ log "Serviços"
+ systemctl daemon-reload
+-systemctl enable mspcp-api mspcp-worker >/dev/null 2>&1
+-systemctl restart mspcp-api mspcp-worker
++systemctl enable mspvdc-api mspvdc-worker >/dev/null 2>&1
++systemctl restart mspvdc-api mspvdc-worker
+ 
+ port=${LISTEN_ADDR##*:}
+ url="https://${PUBLIC_NAME:-$(hostname -I | awk '{print $1}')}"
+@@ -194,23 +194,23 @@ for _ in $(seq 1 30); do
+   sleep 1
+ done
+ if [ "${ok:-0}" != 1 ]; then
+-  journalctl -u mspcp-api -n 30 --no-pager || true
++  journalctl -u mspvdc-api -n 30 --no-pager || true
+   die "a API não respondeu em https://127.0.0.1:${port}/healthz"
+ fi
+ 
+ cat <<EOF
+ 
+-  mspcp no ar: $url
++  mspvdc no ar: $url
+   Usuário: admin $( [ -f "$ADMIN_FILE" ] && echo "(senha temporária em $ADMIN_FILE)" )
+ 
+   Próximos passos, no portal (como admin):
+     1. Infraestrutura › Clusters › Adicionar cluster: endereço do Proxmox e um token
+-       (no node: /etc/scripts/mspcp-pve-setup.sh cria o usuário, o papel e o token)
++       (no node: /etc/scripts/mspvdc-pve-setup.sh cria o usuário, o papel e o token)
+     2. No cluster: aba Storage (classes), aba Reservas de MSP
+     3. Infraestrutura › Imagens: publicar templates
+ 
+   Guarde uma cópia de $ETC/master.key: sem ela os tokens salvos não abrem.
+ 
+-  Logs:   journalctl -u mspcp-api -u mspcp-worker -f
++  Logs:   journalctl -u mspvdc-api -u mspvdc-worker -f
+   Config: $ENV
+ EOF
+diff --git a/deploy/scripts/mspcp-pve-setup.sh b/deploy/scripts/mspvdc-pve-setup.sh
+similarity index 81%
+rename from deploy/scripts/mspcp-pve-setup.sh
+rename to deploy/scripts/mspvdc-pve-setup.sh
+index c690215..736b53d 100755
+--- a/deploy/scripts/mspcp-pve-setup.sh
++++ b/deploy/scripts/mspvdc-pve-setup.sh
+@@ -1,20 +1,20 @@
+ #!/usr/bin/env bash
+-# mspcp-pve-setup.sh — prepara um cluster Proxmox VE para o mspcp.
++# mspvdc-pve-setup.sh — prepara um cluster Proxmox VE para o mspvdc.
+ #
+ # Rode como root em UM node do cluster (a configuração de usuários do PVE é
+ # do cluster todo). Guarde em /etc/scripts/ no node.
+ #
+-#   /etc/scripts/mspcp-pve-setup.sh [-u mspcp@pve] [-t portal]
++#   /etc/scripts/mspvdc-pve-setup.sh [-u mspvdc@pve] [-t portal]
+ #
+ # Cria:
+-#   - o papel MSPCP, só com os privilégios que o portal usa;
+-#   - o usuário mspcp@pve (sem senha: só entra por token);
++#   - o papel MSPVDC, só com os privilégios que o portal usa;
++#   - o usuário mspvdc@pve (sem senha: só entra por token);
+ #   - a permissão do papel em / para o usuário;
+ #   - o token de API (privsep desligado: herda o papel do usuário).
+ # E mostra o que informar no portal (Infraestrutura › Clusters).
+ set -euo pipefail
+ 
+-USER_ID=mspcp@pve
++USER_ID=mspvdc@pve
+ TOKEN=portal
+ NAME=$(hostname -s)
+ while getopts "u:t:n:h" o; do
+@@ -48,22 +48,22 @@ for p in $WANT; do
+ done
+ PRIVS=${PRIVS#,}
+ 
+-if pveum role list --output-format json | python3 -c 'import json,sys; sys.exit(0 if any(r["roleid"]=="MSPCP" for r in json.load(sys.stdin)) else 1)'; then
+-  pveum role modify MSPCP --privs "$PRIVS"
+-  echo "Papel MSPCP atualizado."
++if pveum role list --output-format json | python3 -c 'import json,sys; sys.exit(0 if any(r["roleid"]=="MSPVDC" for r in json.load(sys.stdin)) else 1)'; then
++  pveum role modify MSPVDC --privs "$PRIVS"
++  echo "Papel MSPVDC atualizado."
+ else
+-  pveum role add MSPCP --privs "$PRIVS"
+-  echo "Papel MSPCP criado."
++  pveum role add MSPVDC --privs "$PRIVS"
++  echo "Papel MSPVDC criado."
+ fi
+ 
+ if pveum user list --output-format json | python3 -c "import json,sys; sys.exit(0 if any(u['userid']=='$USER_ID' for u in json.load(sys.stdin)) else 1)"; then
+   echo "Usuário $USER_ID já existe."
+ else
+-  pveum user add "$USER_ID" --comment "Portal mspcp (só token, sem senha)"
++  pveum user add "$USER_ID" --comment "Portal mspvdc (só token, sem senha)"
+   echo "Usuário $USER_ID criado."
+ fi
+-pveum acl modify / --users "$USER_ID" --roles MSPCP
+-echo "Permissão MSPCP em / para $USER_ID."
++pveum acl modify / --users "$USER_ID" --roles MSPVDC
++echo "Permissão MSPVDC em / para $USER_ID."
+ 
+ if pveum user token list "$USER_ID" --output-format json | python3 -c "import json,sys; sys.exit(0 if any(t['tokenid']=='$TOKEN' for t in json.load(sys.stdin)) else 1)"; then
+   echo
+@@ -71,7 +71,7 @@ if pveum user token list "$USER_ID" --output-format json | python3 -c "import js
+   echo "Para gerar outro: pveum user token remove $USER_ID $TOKEN  e rode este script de novo."
+   exit 0
+ fi
+-SECRET=$(pveum user token add "$USER_ID" "$TOKEN" --privsep 0 --comment "mspcp" --output-format json |
++SECRET=$(pveum user token add "$USER_ID" "$TOKEN" --privsep 0 --comment "mspvdc" --output-format json |
+   python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')
+ 
+ IP=$(hostname -I | awk '{print $1}')
+diff --git a/deploy/scripts/mspcp-pve-template.sh b/deploy/scripts/mspvdc-pve-template.sh
+similarity index 90%
+rename from deploy/scripts/mspcp-pve-template.sh
+rename to deploy/scripts/mspvdc-pve-template.sh
+index 8e666aa..750730b 100755
+--- a/deploy/scripts/mspcp-pve-template.sh
++++ b/deploy/scripts/mspvdc-pve-template.sh
+@@ -1,9 +1,9 @@
+ #!/usr/bin/env bash
+-# mspcp-pve-template.sh — cria um template cloud-init num node Proxmox,
++# mspvdc-pve-template.sh — cria um template cloud-init num node Proxmox,
+ # pronto para ser publicado como imagem no portal.
+ #
+-#   /etc/scripts/mspcp-pve-template.sh -i debian12 -s local-lvm [-v 9000] [-b vmbr0]
+-#   /etc/scripts/mspcp-pve-template.sh -i ubuntu2404 -s ceph-ssd -v 9001
++#   /etc/scripts/mspvdc-pve-template.sh -i debian12 -s local-lvm [-v 9000] [-b vmbr0]
++#   /etc/scripts/mspvdc-pve-template.sh -i ubuntu2404 -s ceph-ssd -v 9001
+ #
+ # Baixa a imagem oficial de nuvem, cria a VM com disco importado, drive
+ # cloud-init e VGA padrão (o console do portal usa VNC) e converte em
+diff --git a/deploy/systemd/mspcp-api.service b/deploy/systemd/mspvdc-api.service
+similarity index 70%
+rename from deploy/systemd/mspcp-api.service
+rename to deploy/systemd/mspvdc-api.service
+index 0dd5f33..b661b22 100644
+--- a/deploy/systemd/mspcp-api.service
++++ b/deploy/systemd/mspvdc-api.service
+@@ -1,18 +1,18 @@
+ [Unit]
+-Description=mspcp - API e portal
+-Documentation=file:///usr/share/doc/mspcp/README.md
++Description=mspvdc - API e portal
++Documentation=file:///usr/share/doc/mspvdc/README.md
+ After=network-online.target postgresql.service
+ Wants=network-online.target
+ Requires=postgresql.service
+ 
+ [Service]
+ Type=simple
+-User=mspcp
+-Group=mspcp
+-EnvironmentFile=/etc/mspcp/mspcp.env
++User=mspvdc
++Group=mspvdc
++EnvironmentFile=/etc/mspvdc/mspvdc.env
+ # Aplica as migrations antes de subir (idempotente, com trava no banco).
+-ExecStartPre=/usr/local/bin/mspcp migrate
+-ExecStart=/usr/local/bin/mspcp api
++ExecStartPre=/usr/local/bin/mspvdc migrate
++ExecStart=/usr/local/bin/mspvdc api
+ Restart=on-failure
+ RestartSec=3
+ # Portas 80/443 sem rodar como root.
+@@ -28,7 +28,7 @@ ProtectKernelModules=true
+ ProtectControlGroups=true
+ RestrictSUIDSGID=true
+ LockPersonality=true
+-ReadOnlyPaths=/etc/mspcp
++ReadOnlyPaths=/etc/mspvdc
+ 
+ [Install]
+ WantedBy=multi-user.target
+diff --git a/deploy/systemd/mspcp-worker.service b/deploy/systemd/mspvdc-worker.service
+similarity index 60%
+rename from deploy/systemd/mspcp-worker.service
+rename to deploy/systemd/mspvdc-worker.service
+index bff7886..9f15a4f 100644
+--- a/deploy/systemd/mspcp-worker.service
++++ b/deploy/systemd/mspvdc-worker.service
+@@ -1,15 +1,15 @@
+ [Unit]
+-Description=mspcp - worker (sincronização e tarefas no Proxmox)
+-After=network-online.target postgresql.service mspcp-api.service
++Description=mspvdc - worker (sincronização e tarefas no Proxmox)
++After=network-online.target postgresql.service mspvdc-api.service
+ Wants=network-online.target
+ Requires=postgresql.service
+ 
+ [Service]
+ Type=simple
+-User=mspcp
+-Group=mspcp
+-EnvironmentFile=/etc/mspcp/mspcp.env
+-ExecStart=/usr/local/bin/mspcp worker
++User=mspvdc
++Group=mspvdc
++EnvironmentFile=/etc/mspvdc/mspvdc.env
++ExecStart=/usr/local/bin/mspvdc worker
+ Restart=on-failure
+ RestartSec=3
+ NoNewPrivileges=true
+@@ -23,7 +23,7 @@ ProtectControlGroups=true
+ RestrictSUIDSGID=true
+ LockPersonality=true
+ CapabilityBoundingSet=
+-ReadOnlyPaths=/etc/mspcp
++ReadOnlyPaths=/etc/mspvdc
+ 
+ [Install]
+ WantedBy=multi-user.target
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 891c347..3c57022 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -4,12 +4,12 @@ services:
+   db:
+     image: postgres:16
+     environment:
+-      POSTGRES_USER: mspcp
+-      POSTGRES_PASSWORD: mspcp
+-      POSTGRES_DB: mspcp
++      POSTGRES_USER: mspvdc
++      POSTGRES_PASSWORD: mspvdc
++      POSTGRES_DB: mspvdc
+     ports: ["5432:5432"]
+     healthcheck:
+-      test: ["CMD", "pg_isready", "-U", "mspcp"]
++      test: ["CMD", "pg_isready", "-U", "mspvdc"]
+       interval: 2s
+       retries: 30
+ 
+diff --git a/go.mod b/go.mod
+index acc96fe..72cf2b0 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,4 +1,4 @@
+-module github.com/mspclouds/mspcp
++module github.com/vitordatasafer/mspvdc
+ 
+ go 1.24.0
+ 
+diff --git a/internal/api/clusters.go b/internal/api/clusters.go
+index a4230b0..f19ad25 100644
+--- a/internal/api/clusters.go
++++ b/internal/api/clusters.go
+@@ -16,11 +16,11 @@ import (
+ 	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5"
+ 
+-	"github.com/mspclouds/mspcp/internal/inventory"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/quota"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/inventory"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/quota"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // Privilégios que o portal usa; os que faltarem aparecem no teste.
+diff --git a/internal/api/console.go b/internal/api/console.go
+index 0c41551..dbf6507 100644
+--- a/internal/api/console.go
++++ b/internal/api/console.go
+@@ -15,10 +15,10 @@ import (
+ 	"github.com/go-chi/chi/v5"
+ 	"github.com/google/uuid"
+ 
+-	"github.com/mspclouds/mspcp/internal/localauth"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/localauth"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ const (
+diff --git a/internal/api/e2e_test.go b/internal/api/e2e_test.go
+index b264af3..e27a6ec 100644
+--- a/internal/api/e2e_test.go
++++ b/internal/api/e2e_test.go
+@@ -20,16 +20,16 @@ import (
+ 	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5/pgxpool"
+ 
+-	"github.com/mspclouds/mspcp/internal/api"
+-	"github.com/mspclouds/mspcp/internal/auth"
+-	"github.com/mspclouds/mspcp/internal/db"
+-	"github.com/mspclouds/mspcp/internal/inventory"
+-	"github.com/mspclouds/mspcp/internal/jobs"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/secrets"
+-	"github.com/mspclouds/mspcp/internal/store"
+-	"github.com/mspclouds/mspcp/internal/testutil"
++	"github.com/vitordatasafer/mspvdc/internal/api"
++	"github.com/vitordatasafer/mspvdc/internal/auth"
++	"github.com/vitordatasafer/mspvdc/internal/db"
++	"github.com/vitordatasafer/mspvdc/internal/inventory"
++	"github.com/vitordatasafer/mspvdc/internal/jobs"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/secrets"
++	"github.com/vitordatasafer/mspvdc/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/testutil"
+ )
+ 
+ type env struct {
+@@ -125,15 +125,15 @@ func TestPhase0EndToEnd(t *testing.T) {
+ 
+ 	// Dublês e serviço.
+ 	t.Setenv("TEST_PVE_SECRET", "s3cr3t")
+-	pve := testutil.NewFakePVE(t, "portal@pve!mspcp", "s3cr3t")
+-	idp := testutil.NewFakeOIDC(t, "mspcp")
++	pve := testutil.NewFakePVE(t, "portal@pve!mspvdc", "s3cr3t")
++	idp := testutil.NewFakeOIDC(t, "mspvdc")
+ 	allow := proxmox.ParseAllowlist("127.0.0.1")
+ 	clients := proxmox.NewClients(allow, secrets.Multi{"env": secrets.Env{}}, secrets.NewRandomBox())
+ 	rc, err := jobs.NewInsertClient(pool)
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	s := &api.Server{Pool: pool, Verifier: auth.NewOIDCVerifier(idp.Issuer, "mspcp", nil), River: rc, Allow: allow, Log: log}
++	s := &api.Server{Pool: pool, Verifier: auth.NewOIDCVerifier(idp.Issuer, "mspvdc", nil), River: rc, Allow: allow, Log: log}
+ 	srv := httptest.NewServer(s.Handler())
+ 	defer srv.Close()
+ 	e := &env{t: t, srv: srv, idp: idp, pool: pool}
+@@ -147,9 +147,9 @@ func TestPhase0EndToEnd(t *testing.T) {
+ 	}
+ 
+ 	// ---- clusters, localizações e storage (só a equipe) ----
+-	pve2 := testutil.NewFakePVE(t, "portal@pve!mspcp", "s3cr3t")
++	pve2 := testutil.NewFakePVE(t, "portal@pve!mspvdc", "s3cr3t")
+ 	clusterIn := map[string]any{"name": "cirion-01", "dc": "Cirion", "location": "São Paulo 1", "api_url": pve.Server.URL,
+-		"ca_cert_pem": pve.CAPEM(), "token_id": "portal@pve!mspcp", "token_secret_ref": "env:TEST_PVE_SECRET"}
++		"ca_cert_pem": pve.CAPEM(), "token_id": "portal@pve!mspvdc", "token_secret_ref": "env:TEST_PVE_SECRET"}
+ 	e.must(404, "noc", "POST", "/v1/clusters", clusterIn, nil)
+ 	bad := map[string]any{}
+ 	for k, v := range clusterIn {
+@@ -160,7 +160,7 @@ func TestPhase0EndToEnd(t *testing.T) {
+ 	var c1, c2 store.Cluster
+ 	e.must(201, "admin", "POST", "/v1/clusters", clusterIn, &c1)
+ 	clusterIn2 := map[string]any{"name": "ascenty-01", "dc": "Ascenty", "location": "São Paulo 2", "api_url": pve2.Server.URL,
+-		"ca_cert_pem": pve2.CAPEM(), "token_id": "portal@pve!mspcp", "token_secret_ref": "env:TEST_PVE_SECRET"}
++		"ca_cert_pem": pve2.CAPEM(), "token_id": "portal@pve!mspvdc", "token_secret_ref": "env:TEST_PVE_SECRET"}
+ 	e.must(201, "admin", "POST", "/v1/clusters", clusterIn2, &c2)
+ 	e.must(200, "noc", "GET", "/v1/clusters", nil, nil)
+ 	var ssd store.StorageClass
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index c2f6206..cd8d794 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -8,10 +8,10 @@ import (
+ 	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5"
+ 
+-	"github.com/mspclouds/mspcp/internal/jobs"
+-	"github.com/mspclouds/mspcp/internal/quota"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/jobs"
++	"github.com/vitordatasafer/mspvdc/internal/quota"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // ---------- me ----------
+diff --git a/internal/api/localauth.go b/internal/api/localauth.go
+index 6284925..f79e745 100644
+--- a/internal/api/localauth.go
++++ b/internal/api/localauth.go
+@@ -4,7 +4,7 @@ package api
+ // cookie HttpOnly. O token da sessão nunca é gravado: só o SHA-256 dele.
+ //
+ // CSRF: o cookie é SameSite=Strict e toda requisição que altera estado
+-// precisa do cabeçalho X-MSPCP, que um site de terceiros não consegue
++// precisa do cabeçalho X-MSPVDC, que um site de terceiros não consegue
+ // mandar sem CORS (e a API não libera CORS).
+ 
+ import (
+@@ -19,12 +19,12 @@ import (
+ 	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5"
+ 
+-	"github.com/mspclouds/mspcp/internal/localauth"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/localauth"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+-const sessionCookie = "mspcp_session"
++const sessionCookie = "mspvdc_session"
+ 
+ func hashToken(tok string) []byte {
+ 	h := sha256.Sum256([]byte(tok))
+@@ -58,8 +58,8 @@ func (s *Server) limiters() (*localauth.Limiter, *localauth.Limiter) {
+ // ---------- login / logout ----------
+ 
+ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+-	if r.Header.Get("X-MSPCP") == "" {
+-		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPCP ausente")
++	if r.Header.Get("X-MSPVDC") == "" {
++		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPVDC ausente")
+ 		return
+ 	}
+ 	var in struct {
+@@ -149,8 +149,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+ }
+ 
+ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
+-	if r.Header.Get("X-MSPCP") == "" {
+-		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPCP ausente")
++	if r.Header.Get("X-MSPVDC") == "" {
++		writeErr(w, http.StatusForbidden, "cabeçalho X-MSPVDC ausente")
+ 		return
+ 	}
+ 	if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
+@@ -312,7 +312,7 @@ func (s *Server) issuerName() string {
+ 	if s.ProductName != "" {
+ 		return s.ProductName
+ 	}
+-	return "mspcp"
++	return "mspvdc"
+ }
+ 
+ // ---------- gestão de usuários ----------
+diff --git a/internal/api/server.go b/internal/api/server.go
+index ee31639..1a9b1b6 100644
+--- a/internal/api/server.go
++++ b/internal/api/server.go
+@@ -22,11 +22,11 @@ import (
+ 	"github.com/jackc/pgx/v5/pgxpool"
+ 	"github.com/riverqueue/river"
+ 
+-	"github.com/mspclouds/mspcp/internal/auth"
+-	"github.com/mspclouds/mspcp/internal/localauth"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/auth"
++	"github.com/vitordatasafer/mspvdc/internal/localauth"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ type Server struct {
+@@ -189,8 +189,8 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
+ 		st := s.store()
+ 		var p *rbac.Principal
+ 		if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
+-			if isUnsafe(r.Method) && r.Header.Get("X-MSPCP") == "" {
+-				writeErr(w, http.StatusForbidden, "cabeçalho X-MSPCP ausente")
++			if isUnsafe(r.Method) && r.Header.Get("X-MSPVDC") == "" {
++				writeErr(w, http.StatusForbidden, "cabeçalho X-MSPVDC ausente")
+ 				return
+ 			}
+ 			h := hashToken(c.Value)
+diff --git a/internal/api/usable_test.go b/internal/api/usable_test.go
+index b31bccd..60e030c 100644
+--- a/internal/api/usable_test.go
++++ b/internal/api/usable_test.go
+@@ -22,16 +22,16 @@ import (
+ 	"github.com/coder/websocket"
+ 	"github.com/google/uuid"
+ 
+-	"github.com/mspclouds/mspcp/internal/api"
+-	"github.com/mspclouds/mspcp/internal/db"
+-	"github.com/mspclouds/mspcp/internal/inventory"
+-	"github.com/mspclouds/mspcp/internal/jobs"
+-	"github.com/mspclouds/mspcp/internal/localauth"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/secrets"
+-	"github.com/mspclouds/mspcp/internal/store"
+-	"github.com/mspclouds/mspcp/internal/testutil"
++	"github.com/vitordatasafer/mspvdc/internal/api"
++	"github.com/vitordatasafer/mspvdc/internal/db"
++	"github.com/vitordatasafer/mspvdc/internal/inventory"
++	"github.com/vitordatasafer/mspvdc/internal/jobs"
++	"github.com/vitordatasafer/mspvdc/internal/localauth"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/secrets"
++	"github.com/vitordatasafer/mspvdc/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/testutil"
+ )
+ 
+ type browser struct {
+@@ -55,7 +55,7 @@ func (b *browser) do(method, path string, body any, csrf bool) (int, []byte) {
+ 	req, _ := http.NewRequest(method, b.base+path, rd)
+ 	req.Header.Set("Content-Type", "application/json")
+ 	if csrf {
+-		req.Header.Set("X-MSPCP", "1")
++		req.Header.Set("X-MSPVDC", "1")
+ 	}
+ 	resp, err := b.c.Do(req)
+ 	if err != nil {
+@@ -121,7 +121,7 @@ func TestUsableEndToEnd(t *testing.T) {
+ 	}
+ 
+ 	t.Setenv("TEST_PVE_SECRET", "s3cr3t")
+-	pve := testutil.NewFakePVE(t, "portal@pve!mspcp", "s3cr3t")
++	pve := testutil.NewFakePVE(t, "portal@pve!mspvdc", "s3cr3t")
+ 	allow := proxmox.ParseAllowlist("127.0.0.1")
+ 	clients := proxmox.NewClients(allow, secrets.Multi{"env": secrets.Env{}}, secrets.NewRandomBox())
+ 	rc, err := jobs.NewInsertClient(pool)
+@@ -151,7 +151,7 @@ func TestUsableEndToEnd(t *testing.T) {
+ 		t.Fatalf("config.json deveria anunciar login local: %v", cfg)
+ 	}
+ 	if code, _ := adm.do("POST", "/auth/login", map[string]any{"username": "admin", "password": temp}, false); code != 403 {
+-		t.Fatalf("login sem X-MSPCP deveria ser recusado, veio %d", code)
++		t.Fatalf("login sem X-MSPVDC deveria ser recusado, veio %d", code)
+ 	}
+ 	adm.must(401, "POST", "/auth/login", map[string]any{"username": "admin", "password": "errada-errada"}, nil)
+ 	adm.must(401, "POST", "/auth/login", map[string]any{"username": "ninguem", "password": "errada-errada"}, nil)
+@@ -171,7 +171,7 @@ func TestUsableEndToEnd(t *testing.T) {
+ 	adm.must(204, "PUT", "/v1/me/password", map[string]any{"current_password": temp, "new_password": "admin-senha-nova-1"}, nil)
+ 	adm.must(200, "GET", "/v1/tenants", nil, nil)
+ 	if code, _ := adm.do("PUT", "/v1/me/password", map[string]any{"current_password": "a", "new_password": "b"}, false); code != 403 {
+-		t.Fatalf("mudança sem X-MSPCP deveria ser recusada, veio %d", code)
++		t.Fatalf("mudança sem X-MSPVDC deveria ser recusada, veio %d", code)
+ 	}
+ 
+ 	// ---- 2FA ----
+@@ -202,7 +202,7 @@ func TestUsableEndToEnd(t *testing.T) {
+ 
+ 	// ---- área de clusters: testar, cadastrar (segredo cifrado), reservar ----
+ 	clusterForm := map[string]any{"name": "lab-01", "dc": "Lab", "location": "Laboratório",
+-		"api_url": pve.Server.URL, "token_id": "portal@pve!mspcp", "token_secret": "s3cr3t", "default_bridge": "vmbr1"}
++		"api_url": pve.Server.URL, "token_id": "portal@pve!mspvdc", "token_secret": "s3cr3t", "default_bridge": "vmbr1"}
+ 	var probe struct {
+ 		OK       bool   `json:"ok"`
+ 		Error    string `json:"error"`
+@@ -216,7 +216,7 @@ func TestUsableEndToEnd(t *testing.T) {
+ 		}
+ 		Missing []string `json:"missing_privileges"`
+ 	}
+-	bad := map[string]any{"api_url": pve.Server.URL, "token_id": "portal@pve!mspcp", "token_secret": "errado"}
++	bad := map[string]any{"api_url": pve.Server.URL, "token_id": "portal@pve!mspvdc", "token_secret": "errado"}
+ 	adm.must(200, "POST", "/v1/clusters/probe", bad, &probe)
+ 	if probe.OK || !strings.Contains(probe.Error, "token") {
+ 		t.Fatalf("token errado deveria falhar no teste: %+v", probe)
+diff --git a/internal/api/vdc.go b/internal/api/vdc.go
+index 62ffd47..ea9eef3 100644
+--- a/internal/api/vdc.go
++++ b/internal/api/vdc.go
+@@ -10,9 +10,9 @@ import (
+ 	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5"
+ 
+-	"github.com/mspclouds/mspcp/internal/quota"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/quota"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // quotaErr responde 422 para violações de regra de cota.
+diff --git a/internal/api/vms.go b/internal/api/vms.go
+index 7396f66..2bd3908 100644
+--- a/internal/api/vms.go
++++ b/internal/api/vms.go
+@@ -15,12 +15,12 @@ import (
+ 	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5"
+ 
+-	"github.com/mspclouds/mspcp/internal/jobs"
+-	"github.com/mspclouds/mspcp/internal/localauth"
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/quota"
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/jobs"
++	"github.com/vitordatasafer/mspvdc/internal/localauth"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/quota"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // ---------- templates e imagens ----------
+diff --git a/internal/auth/oidc_test.go b/internal/auth/oidc_test.go
+index 66666a7..86c4ab4 100644
+--- a/internal/auth/oidc_test.go
++++ b/internal/auth/oidc_test.go
+@@ -7,13 +7,13 @@ import (
+ 
+ 	"github.com/golang-jwt/jwt/v5"
+ 
+-	"github.com/mspclouds/mspcp/internal/auth"
+-	"github.com/mspclouds/mspcp/internal/testutil"
++	"github.com/vitordatasafer/mspvdc/internal/auth"
++	"github.com/vitordatasafer/mspvdc/internal/testutil"
+ )
+ 
+ func TestOIDCVerifier(t *testing.T) {
+-	idp := testutil.NewFakeOIDC(t, "mspcp")
+-	v := auth.NewOIDCVerifier(idp.Issuer, "mspcp", nil)
++	idp := testutil.NewFakeOIDC(t, "mspvdc")
++	v := auth.NewOIDCVerifier(idp.Issuer, "mspvdc", nil)
+ 	ctx := context.Background()
+ 
+ 	c, err := v.Verify(ctx, idp.Token(t, "alice", time.Minute))
+@@ -24,17 +24,17 @@ func TestOIDCVerifier(t *testing.T) {
+ 	cases := map[string]string{
+ 		"expirado":       idp.Token(t, "alice", -time.Hour),
+ 		"audience outra": idp.TokenWith(t, jwt.MapClaims{"iss": idp.Issuer, "aud": "outro", "sub": "a", "exp": time.Now().Add(time.Minute).Unix()}),
+-		"issuer outro":   idp.TokenWith(t, jwt.MapClaims{"iss": "https://evil", "aud": "mspcp", "sub": "a", "exp": time.Now().Add(time.Minute).Unix()}),
+-		"sem exp":        idp.TokenWith(t, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspcp", "sub": "a"}),
+-		"sem sub":        idp.TokenWith(t, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspcp", "exp": time.Now().Add(time.Minute).Unix()}),
++		"issuer outro":   idp.TokenWith(t, jwt.MapClaims{"iss": "https://evil", "aud": "mspvdc", "sub": "a", "exp": time.Now().Add(time.Minute).Unix()}),
++		"sem exp":        idp.TokenWith(t, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspvdc", "sub": "a"}),
++		"sem sub":        idp.TokenWith(t, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspvdc", "exp": time.Now().Add(time.Minute).Unix()}),
+ 		"lixo":           "abc.def.ghi",
+ 	}
+ 	// HS256 assinado com a "chave pública" (ataque clássico de confusão de algoritmo).
+-	hs := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspcp", "sub": "a", "exp": time.Now().Add(time.Minute).Unix()})
++	hs := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspvdc", "sub": "a", "exp": time.Now().Add(time.Minute).Unix()})
+ 	hs.Header["kid"] = idp.KID
+ 	cases["hs256"], _ = hs.SignedString([]byte("qualquer"))
+ 	// alg none
+-	none := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspcp", "sub": "a", "exp": time.Now().Add(time.Minute).Unix()})
++	none := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"iss": idp.Issuer, "aud": "mspvdc", "sub": "a", "exp": time.Now().Add(time.Minute).Unix()})
+ 	cases["none"], _ = none.SignedString(jwt.UnsafeAllowNoneSignatureType)
+ 
+ 	for name, tok := range cases {
+diff --git a/internal/inventory/syncer.go b/internal/inventory/syncer.go
+index 2b92e72..c172665 100644
+--- a/internal/inventory/syncer.go
++++ b/internal/inventory/syncer.go
+@@ -13,8 +13,8 @@ import (
+ 	"github.com/jackc/pgx/v5"
+ 	"github.com/jackc/pgx/v5/pgxpool"
+ 
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ type Syncer struct {
+diff --git a/internal/jobs/power.go b/internal/jobs/power.go
+index 6e95afc..c480e1e 100644
+--- a/internal/jobs/power.go
++++ b/internal/jobs/power.go
+@@ -16,8 +16,8 @@ import (
+ 	"github.com/riverqueue/river"
+ 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+ 
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // PowerArgs carrega só o ID da Task: o resto é lido do banco na execução,
+diff --git a/internal/jobs/vm.go b/internal/jobs/vm.go
+index 357ae64..c94f107 100644
+--- a/internal/jobs/vm.go
++++ b/internal/jobs/vm.go
+@@ -19,8 +19,8 @@ import (
+ 	"github.com/jackc/pgx/v5/pgxpool"
+ 	"github.com/riverqueue/river"
+ 
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // VMArgs carrega só o ID da Task, como PowerArgs.
+@@ -176,7 +176,7 @@ func (r *vmRun) ensurePool(ctx context.Context, cl *proxmox.Client, p store.Proj
+ 	if err != nil {
+ 		return err
+ 	}
+-	err = cl.CreatePool(ctx, p.PoolName, "mspcp: "+t.Name+" / "+p.Name)
++	err = cl.CreatePool(ctx, p.PoolName, "mspvdc: "+t.Name+" / "+p.Name)
+ 	if err != nil {
+ 		msg := err.Error()
+ 		_ = r.st.SetPoolState(ctx, p.ID, false, &msg)
+diff --git a/internal/proxmox/client_test.go b/internal/proxmox/client_test.go
+index 0d32b37..fba3416 100644
+--- a/internal/proxmox/client_test.go
++++ b/internal/proxmox/client_test.go
+@@ -15,8 +15,8 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/mspclouds/mspcp/internal/proxmox"
+-	"github.com/mspclouds/mspcp/internal/testutil"
++	"github.com/vitordatasafer/mspvdc/internal/proxmox"
++	"github.com/vitordatasafer/mspvdc/internal/testutil"
+ )
+ 
+ func TestAllowlistCheck(t *testing.T) {
+diff --git a/internal/proxmox/factory.go b/internal/proxmox/factory.go
+index 3aefeb8..742aeb5 100644
+--- a/internal/proxmox/factory.go
++++ b/internal/proxmox/factory.go
+@@ -6,8 +6,8 @@ import (
+ 
+ 	"github.com/google/uuid"
+ 
+-	"github.com/mspclouds/mspcp/internal/secrets"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/secrets"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // Clients monta e reaproveita um Client por cluster. O segredo do token é
+diff --git a/internal/proxmox/inventory.go b/internal/proxmox/inventory.go
+index b1f027c..3158323 100644
+--- a/internal/proxmox/inventory.go
++++ b/internal/proxmox/inventory.go
+@@ -17,7 +17,7 @@ import (
+ 	"strings"
+ 	"time"
+ 
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // Res é uma linha de /cluster/resources (qualquer tipo).
+diff --git a/internal/quota/quota.go b/internal/quota/quota.go
+index 2596301..f90e5a9 100644
+--- a/internal/quota/quota.go
++++ b/internal/quota/quota.go
+@@ -21,7 +21,7 @@ import (
+ 
+ 	"github.com/google/uuid"
+ 
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ // Error é uma violação de regra de negócio, com mensagem para o usuário.
+diff --git a/internal/rbac/rbac.go b/internal/rbac/rbac.go
+index fef16f4..040ccbd 100644
+--- a/internal/rbac/rbac.go
++++ b/internal/rbac/rbac.go
+@@ -7,7 +7,7 @@ package rbac
+ import (
+ 	"github.com/google/uuid"
+ 
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ type Permission string
+diff --git a/internal/rbac/rbac_test.go b/internal/rbac/rbac_test.go
+index bb2a4ce..6c4f176 100644
+--- a/internal/rbac/rbac_test.go
++++ b/internal/rbac/rbac_test.go
+@@ -5,8 +5,8 @@ import (
+ 
+ 	"github.com/google/uuid"
+ 
+-	"github.com/mspclouds/mspcp/internal/rbac"
+-	"github.com/mspclouds/mspcp/internal/store"
++	"github.com/vitordatasafer/mspvdc/internal/rbac"
++	"github.com/vitordatasafer/mspvdc/internal/store"
+ )
+ 
+ func TestScopeHierarchy(t *testing.T) {
+diff --git a/internal/testutil/fakepve.go b/internal/testutil/fakepve.go
+index 9ae1415..1b9ae6c 100644
+--- a/internal/testutil/fakepve.go
++++ b/internal/testutil/fakepve.go
+@@ -19,7 +19,7 @@ import (
+ 	"github.com/coder/websocket"
+ )
+ 
+-// FakePVE simula o pedaço da API do Proxmox que o mspcp usa: inventário,
++// FakePVE simula o pedaço da API do Proxmox que o mspvdc usa: inventário,
+ // energia, pools, clone de template, configuração, disco, exclusão e
+ // console (vncproxy + vncwebsocket com um servidor VNC de mentira).
+ type FakePVE struct {
+@@ -414,7 +414,7 @@ func (f *FakePVE) serve(w http.ResponseWriter, r *http.Request) {
+ 		ticket := fmt.Sprintf("PVEVNC:%08X::fakeTicket%d", f.seq, f.seq)
+ 		f.tickets[ticket] = vmid
+ 		f.calls = append(f.calls, fmt.Sprintf("VNCPROXY %d", vmid))
+-		reply(map[string]any{"port": "5900", "ticket": ticket, "user": "portal@pve!mspcp", "upid": f.newUPID(parts[1], "vncproxy", vmid)})
++		reply(map[string]any{"port": "5900", "ticket": ticket, "user": "portal@pve!mspvdc", "upid": f.newUPID(parts[1], "vncproxy", vmid)})
+ 
+ 	// /nodes/{node}/tasks/{upid}/status
+ 	case r.Method == http.MethodGet && len(parts) == 5 && parts[0] == "nodes" && parts[2] == "tasks" && parts[4] == "status":
+diff --git a/internal/testutil/fakevnc.go b/internal/testutil/fakevnc.go
+index e9979c8..bd00769 100644
+--- a/internal/testutil/fakevnc.go
++++ b/internal/testutil/fakevnc.go
+@@ -65,7 +65,7 @@ func serveFakeVNC(ctx context.Context, conn net.Conn, password, vmName string) {
+ 	if _, err := br.ReadByte(); err != nil { // ClientInit (shared)
+ 		return
+ 	}
+-	name := "mspcp " + vmName
++	name := "mspvdc " + vmName
+ 	init := binary.BigEndian.AppendUint16(nil, vncW)
+ 	init = binary.BigEndian.AppendUint16(init, vncH)
+ 	init = append(init, 32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0)
+@@ -77,7 +77,7 @@ func serveFakeVNC(ctx context.Context, conn net.Conn, password, vmName string) {
+ 
+ 	scr := &vncScreen{pf: pixFmt{rs: 16, gs: 8, bs: 0, rmax: 255, gmax: 255, bmax: 255}, vm: vmName}
+ 	scr.lines = []string{
+-		"mspcp - console de demonstracao (PVE simulado)",
++		"mspvdc - console de demonstracao (PVE simulado)",
+ 		"",
+ 		"Debian GNU/Linux 12 " + vmName + " tty1",
+ 		"",
+diff --git a/web/package-lock.json b/web/package-lock.json
+index 9186ebd..1b87013 100644
+--- a/web/package-lock.json
++++ b/web/package-lock.json
+@@ -1,11 +1,11 @@
+ {
+-  "name": "mspcp-portal",
++  "name": "mspvdc-portal",
+   "version": "0.1.0",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+-      "name": "mspcp-portal",
++      "name": "mspvdc-portal",
+       "version": "0.1.0",
+       "dependencies": {
+         "@novnc/novnc": "^1.4.0",
+diff --git a/web/package.json b/web/package.json
+index 9514db1..cc1dbcb 100644
+--- a/web/package.json
++++ b/web/package.json
+@@ -1,5 +1,5 @@
+ {
+-  "name": "mspcp-portal",
++  "name": "mspvdc-portal",
+   "private": true,
+   "version": "0.1.0",
+   "type": "module",
+diff --git a/web/src/api.ts b/web/src/api.ts
+index 18c14e4..f477ecb 100644
+--- a/web/src/api.ts
++++ b/web/src/api.ts
+@@ -292,12 +292,12 @@ export class ApiError extends Error {
+ }
+ 
+ // api chama a API v1. No login local a sessão vai no cookie e toda
+-// requisição leva o cabeçalho X-MSPCP (proteção contra CSRF); no OIDC vai o
++// requisição leva o cabeçalho X-MSPVDC (proteção contra CSRF); no OIDC vai o
+ // token Bearer.
+ export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+   const cfg = await getConfig();
+   const headers = new Headers(init.headers);
+-  headers.set("X-MSPCP", "1");
++  headers.set("X-MSPVDC", "1");
+   if (cfg.auth === "oidc") {
+     const user = await oidcUser();
+     if (!user) {
+diff --git a/web/src/auth.ts b/web/src/auth.ts
+index 2b10e79..46f6ec0 100644
+--- a/web/src/auth.ts
++++ b/web/src/auth.ts
+@@ -79,7 +79,7 @@ export async function logout() {
+     await m.signoutRedirect({ id_token_hint: u?.id_token });
+     return;
+   }
+-  await fetch("/auth/logout", { method: "POST", headers: { "X-MSPCP": "1" }, credentials: "same-origin" });
++  await fetch("/auth/logout", { method: "POST", headers: { "X-MSPVDC": "1" }, credentials: "same-origin" });
+   location.assign("/login");
+ }
+ 
+@@ -93,7 +93,7 @@ export async function localLogin(username: string, password: string, totp?: stri
+   const res = await fetch("/auth/login", {
+     method: "POST",
+     credentials: "same-origin",
+-    headers: { "Content-Type": "application/json", "X-MSPCP": "1" },
++    headers: { "Content-Type": "application/json", "X-MSPVDC": "1" },
+     body: JSON.stringify({ username, password, totp: totp || "" }),
+   });
+   const data = await res.json().catch(() => ({}));
+diff --git a/web/src/components/Layout.tsx b/web/src/components/Layout.tsx
+index 3b72a5e..0dc9545 100644
+--- a/web/src/components/Layout.tsx
++++ b/web/src/components/Layout.tsx
+@@ -51,7 +51,7 @@ function current(mods: Module[], path: string) {
+   return mods.find((m) => m.key !== "home" && m.match.some((p) => path === p || path.startsWith(p + "/"))) ?? mods[0];
+ }
+ 
+-const NAV_KEY = "mspcp.subnav.collapsed";
++const NAV_KEY = "mspvdc.subnav.collapsed";
+ 
+ export function Layout() {
+   const s = useSession();
+diff --git a/web/src/pages/Clusters.tsx b/web/src/pages/Clusters.tsx
+index 15562e2..7cb42eb 100644
+--- a/web/src/pages/Clusters.tsx
++++ b/web/src/pages/Clusters.tsx
+@@ -93,7 +93,7 @@ export function SyncStatus({ c }: { c: Cluster }) {
+ function AddClusterModal({ onClose }: { onClose: () => void }) {
+   const qc = useQueryClient();
+   const nav = useNavigate();
+-  const [f, setF] = useState({ name: "", dc: "", location: "", api_url: "https://", token_id: "mspcp@pve!portal", token_secret: "", ca_cert_pem: "" });
++  const [f, setF] = useState({ name: "", dc: "", location: "", api_url: "https://", token_id: "mspvdc@pve!portal", token_secret: "", ca_cert_pem: "" });
+   const [advanced, setAdvanced] = useState(false);
+   const [probe, setProbe] = useState<ProbeResult | null>(null);
+   const [bridge, setBridge] = useState("");
+@@ -165,7 +165,7 @@ function AddClusterModal({ onClose }: { onClose: () => void }) {
+             </label>
+             <label className="field">
+               Token
+-              <input className="input" value={f.token_id} onChange={set("token_id")} placeholder="mspcp@pve!portal" />
++              <input className="input" value={f.token_id} onChange={set("token_id")} placeholder="mspvdc@pve!portal" />
+             </label>
+             <label className="field">
+               Segredo do token
+@@ -174,8 +174,8 @@ function AddClusterModal({ onClose }: { onClose: () => void }) {
+             </label>
+           </div>
+           <p className="hint" style={{ marginTop: 10 }}>
+-            Ainda não tem token? No node, rode <code>/etc/scripts/mspcp-pve-setup.sh</code> ou crie em Datacenter › Permissões › API Tokens
+-            (usuário com o papel MSPCP, separação de privilégios desligada).
++            Ainda não tem token? No node, rode <code>/etc/scripts/mspvdc-pve-setup.sh</code> ou crie em Datacenter › Permissões › API Tokens
++            (usuário com o papel MSPVDC, separação de privilégios desligada).
+           </p>
+           <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => setAdvanced(!advanced)}>
+             {advanced ? "Esconder" : "Informar"} a CA do cluster (opcional)
+diff --git a/web/vite.config.ts b/web/vite.config.ts
+index 3a27f8c..ce9f987 100644
+--- a/web/vite.config.ts
++++ b/web/vite.config.ts
+@@ -1,7 +1,7 @@
+ import { defineConfig } from "vite";
+ import react from "@vitejs/plugin-react";
+ 
+-// Em desenvolvimento a API roda em :8080 (mspcp api ou devstack).
++// Em desenvolvimento a API roda em :8080 (mspvdc api ou devstack).
+ export default defineConfig({
+   plugins: [react()],
+   server: {
+-- 
+2.43.0
+
